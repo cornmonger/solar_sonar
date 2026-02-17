@@ -1,0 +1,45 @@
+[package]
+name = "solar_sonar"
+version = "0.1.1"
+edition = "2024"
+description = "StarMap alerts for EVE Online"
+authors = ["cornmonger <cormonger@cornmonger.fish>"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/cornmonger/solar_sonar"
+homepage = "https://cornmonger.fish"
+categories = []
+keywords = ["solar", "sonar", "eve"]
+default-run = "solar_sonar"
+
+[[bin]]
+name = "solar_sonar"
+path = "src/main.rs"
+
+[[bin]]
+name = "gencode"
+path = "src/bin/gencode.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+chrono = "0.4"
+const_format = "0.2"
+directories = "6"
+encoding_rs_io = "0.1"
+encoding_rs = "0.8"
+heck = "0.5"
+itertools = "0.14.0"
+ort-sys = { version = "=2.0.0-rc.9", default-features = false } # pinned for piper
+piper-rs = "0.1"
+prettyplease = "0.2"
+proc-macro2 = "1.0"
+quote = "1.0"
+rand = "0.10"
+reqwest = { version = "0.13", features = ["blocking"] }
+rodio = { version = "0.21" }
+rusqlite = "0.38"
+serde = { version = "1", features = ["derive"] }
+shellexpand = { version = "3", features = ["path"] }
+snafu = "0.8"
+syn = "2"
+toml = "1"
+

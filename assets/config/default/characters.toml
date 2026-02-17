@@ -1,0 +1,10 @@
+# ~/.config/solar_sonar/characters.toml
+# Characters and their channels
+
+# EXAMPLE
+# Copy, uncomment, and fill out for each character.
+# 
+#[[character]]
+#alias = "my_char"  # unique. snake_case.
+#id = 12345  # esi id
+#intel_channels = ["our.intel"]  # comma-seperated. eg, ["chan1", "chan2"]
