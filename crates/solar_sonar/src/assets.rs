@@ -15,6 +15,8 @@ impl RemoteAsset {
     pub(crate) fn download(&self) -> SolarResult<PathBuf> {
         let filepath = self.filepath()?;
         let mut resp = reqwest::blocking::get(self.default_url)
+            .map_err(|_| SolarError::msg(format!("Failed to download: {}", self.default_url)))?
+            .error_for_status()
             .map_err(|_| SolarError::msg(format!("Failed to download: {}", self.default_url)))?;
         let mut dest = File::create(&filepath)
             .map_err(|e| SolarError::write(e, &filepath))?;
@@ -54,7 +56,7 @@ impl RemoteAssets {
             name: "Voice Model Configuration",
             dir: AssetDir::Data,
             filename: "en_US-libritts_r-medium.onnx.json",
-            default_url: "https://github.com/cornmonger/solar_sonar_assets/raw/refs/heads/dev/thirdparty/rhasspy/piper-voices/en_US-libritts_r-medium.onnx.json",
+            default_url: "https://github.com/cornmonger/solar_sonar_asssets/raw/refs/heads/dev/thirdparty/rhasspy/piper-voices/en_US-libritts_r-medium.onnx.json",
         },
         // Source: https://huggingface.co/rhasspy/piper-voices
         // Path: https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/libritts_r/medium
@@ -65,7 +67,7 @@ impl RemoteAssets {
             name: "Voice Model",
             dir: AssetDir::Data,
             filename: "en_US-libritts_r-medium.onnx",
-            default_url: "https://github.com/cornmonger/solar_sonar_assets/raw/refs/heads/dev/thirdparty/rhasspy/piper-voices/en_US-libritts_r-medium.onnx",
+            default_url: "https://media.githubusercontent.com/media/cornmonger/solar_sonar_asssets/refs/heads/dev/thirdparty/rhasspy/piper-voices/en_US-libritts_r-medium.onnx",
         },
     ];
 

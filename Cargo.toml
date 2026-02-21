@@ -1,25 +1,13 @@
-[package]
-name = "solar_sonar"
-version = "0.1.1"
-edition = "2024"
-description = "StarMap alerts for EVE Online"
-authors = ["cornmonger <cormonger@cornmonger.fish>"]
-license = "AGPL-3.0-or-later"
-repository = "https://github.com/cornmonger/solar_sonar"
-homepage = "https://cornmonger.fish"
-categories = []
-keywords = ["solar", "sonar", "eve"]
-default-run = "solar_sonar"
+[workspace]
+resolver = "2"
+members = [
+  "crates/solar_sonar",
+  "crates/solar_sonar_dev",
+]
+default-members = ["crates/solar_sonar"]
 
-[[bin]]
-name = "solar_sonar"
-path = "src/main.rs"
-
-[[bin]]
-name = "gencode"
-path = "src/bin/gencode.rs"
-
-[dependencies]
+[workspace.dependencies]
+bzip2 = "0.6"
 clap = { version = "4", features = ["derive"] }
 chrono = "0.4"
 const_format = "0.2"

@@ -133,5 +133,5 @@ fn setup_config_file(filepath: &Path, defaults: &str) -> SolarResult<()> {
     }
 }
 
-const DEFAULT_CHARACTERS_TOML: &'static str = include_str!("../assets/config/default/characters.toml");
-const DEFAULT_SETTINGS_TOML: &'static str = include_str!("../assets/config/default/settings.toml");
+const DEFAULT_CHARACTERS_TOML: &'static str = include_str!("../../../assets/config/default/characters.toml");
+const DEFAULT_SETTINGS_TOML: &'static str = include_str!("../../../assets/config/default/settings.toml");

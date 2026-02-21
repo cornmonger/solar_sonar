@@ -1,23 +1,51 @@
+use bzip2::read::BzDecoder;
 use rusqlite as sqlite;
-use clap::Parser;
-use std::{fs, path::{Path, PathBuf}};
+use std::{fs::{self, File}, io, path::{Path, PathBuf}};
 use quote::quote;
 use proc_macro2::Literal;
 
-/// Generates the project src/generated code-base.
-#[derive(Debug, clap::Parser)]
-struct Cli {
-    /// Path to the FuzzWorks SDE .sqlite file
-    /// Download from: https://www.fuzzwork.co.uk/dump
-    sqlite_db: PathBuf,
-}
+const WORKSPACE_PARENT: &'static str = "../..";
+const STARMAP_FILE: &'static str =  "crates/solar_sonar/src/generated/starmap.rs";
+const SDE_FILE: &'static str = "target/solar_sonar_dev/eve_sde.sqlite";
+const SDE_FILE_BZ2: &'static str = "target/solar_sonar_dev/eve_sde.sqlite.bz2";
+const SDE_URL: &'static str = "https://media.githubusercontent.com/media/cornmonger/solar_sonar_asssets/refs/heads/dev/thirdparty/fuzzwork/sde/sqlite-latest.sqlite.bz2";
 
 pub fn main() {
-    let cli = Cli::parse();
-    let sql = sqlite::Connection::open(cli.sqlite_db)
-        .expect("Unable to open SQLite DB");
-
+    let sqlite_db = download_sde();
+    let sql = sqlite::Connection::open(sqlite_db).unwrap();
     generate_starmap_rs(&sql);
+}
+
+fn workspace_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(WORKSPACE_PARENT)
+        .canonicalize().unwrap()
+}
+
+fn download_sde() -> PathBuf {
+    let filepath = workspace_dir().join(SDE_FILE);
+    if filepath.exists() {
+        return filepath;
+    }
+
+    let bz2_filepath = workspace_dir().join(SDE_FILE_BZ2);
+    let dir = bz2_filepath.parent().unwrap();
+    if !dir.exists() {
+        fs::create_dir_all(dir).unwrap();
+    }
+    
+    let mut resp = reqwest::blocking::get(SDE_URL)
+        .unwrap()
+        .error_for_status().unwrap();
+    let mut dest = File::create(&bz2_filepath).unwrap();
+    io::copy(&mut resp, &mut dest).unwrap();
+
+    let bz2_file = File::open(&bz2_filepath).unwrap();
+    let mut decoder = BzDecoder::new(bz2_file);
+    let mut output = File::create(&filepath).unwrap();
+    io::copy(&mut decoder, &mut output).unwrap();
+
+    filepath
 }
 
 #[derive(Debug)]
@@ -90,9 +118,8 @@ fn generate_starmap_rs(sql: &sqlite::Connection) {
         };
     };
 
-    let output_file = Path::new(std::env!("CARGO_MANIFEST_DIR"))
-        .join("src/generated/starmap.rs");
 
+    let output_file = workspace_dir().join(STARMAP_FILE);
     let tokens = src.to_string();
     fs::write(&output_file, &tokens).expect("file write");
     let parsed = syn::parse_file(&tokens).unwrap();

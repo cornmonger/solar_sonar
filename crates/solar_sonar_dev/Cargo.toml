@@ -1,0 +1,21 @@
+[package]
+name = "solar_sonar_dev"
+version = "0.1.2"
+edition = "2024"
+description = "Development tools for solar_sonar"
+authors = ["cornmonger <cormonger@cornmonger.fish>"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/cornmonger/solar_sonar"
+homepage = "https://cornmonger.fish"
+categories = []
+keywords = ["solar", "sonar", "eve"]
+
+[dependencies]
+bzip2.workspace = true
+prettyplease.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
+reqwest.workspace = true
+rusqlite.workspace = true
+syn.workspace = true
+
