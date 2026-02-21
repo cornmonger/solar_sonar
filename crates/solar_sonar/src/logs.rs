@@ -82,7 +82,6 @@ pub(crate) fn read_intel_logs(run: &Running, mut logs: ChannelLogs) -> SolarResu
     let log_paths = fs::read_dir(&chat_logs_dir)
         .map_err(|e| SolarError::list(e, &chat_logs_dir))?
         .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.file_type().is_ok_and(|ft| ft.is_file()))
         .filter_map(|entry| {
             let path = entry.path();
             if Some("txt") != path.extension().and_then(|p| p.to_str()) {
@@ -147,7 +146,6 @@ pub(crate) fn read_intel_logs(run: &Running, mut logs: ChannelLogs) -> SolarResu
             .map_err(|e| SolarError::read(e, &log_path.path))?;
         let file = DecodeReaderBytesBuilder::new()
             .encoding(Some(UTF_16LE))
-            //.bom_sniffing(true)
             .build(file);
         let mut reader = BufReader::new(file);
 

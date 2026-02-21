@@ -55,6 +55,7 @@ pub(crate) use std::{
     time::{Duration},
 };
 
+pub(crate) use bzip2::read::BzDecoder;
 pub(crate) use clap::Parser;
 pub(crate) use chrono::{NaiveDateTime, DateTime, Utc};
 pub(crate) use itertools::Itertools;

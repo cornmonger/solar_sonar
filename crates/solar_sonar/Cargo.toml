@@ -1,6 +1,6 @@
 [package]
 name = "solar_sonar"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 description = "StarMap alerts for EVE Online"
 authors = ["cornmonger <cormonger@cornmonger.fish>"]
@@ -11,6 +11,7 @@ categories = []
 keywords = ["solar", "sonar", "eve"]
 
 [dependencies]
+bzip2.workspace = true
 clap.workspace = true
 chrono.workspace = true
 const_format.workspace = true
@@ -27,5 +28,6 @@ rodio.workspace = true
 serde.workspace = true
 shellexpand.workspace = true
 snafu.workspace = true
+tar.workspace = true
 toml.workspace = true
 

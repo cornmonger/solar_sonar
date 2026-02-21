@@ -54,6 +54,13 @@ fn run_cli(run: Running) -> SolarResult<()> {
             },
         }
     }
+
+    const ENV_ESPEAK_DATA_PATH: &'static str = "ESPEAK_DATA_PATH";
+    if env::var(ENV_ESPEAK_DATA_PATH).is_err() {
+        unsafe {
+            env::set_var(ENV_ESPEAK_DATA_PATH, RemoteAssets::EspeakData.get().dirpath()?)
+        }
+    }
     
     let watch_channels = run.args.watch_characters(&run.cfg).iter()
         .map(|chr| &chr.intel_channels)
