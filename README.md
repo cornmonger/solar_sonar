@@ -16,6 +16,8 @@ when systems within range are mentioned.
 
 Instructions: [rustup.rs](https://rustup.rs)
 
+- Windows: Download the installer at [rustup.rs](https://rustup.rs)
+- Linux / MacOS:
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ```
@@ -33,6 +35,10 @@ cargo install solar_sonar
 
 ### Configuration
 
+Within EVE:
+- Enable logging: Settings / Chat / Log Chat to File
+- Enable timestamps: Right-click on channel / Show Timestamp
+
 `~/.config/solar_sonar`
 - `characters.toml` Characters and their channels
 - `settings.toml` Game path and various options
@@ -40,6 +46,7 @@ cargo install solar_sonar
 The first run of *solar_sonar* will install configuration files and
 let you edit them (if `$EDITOR` is set in your environment). It will also
 download the voice model assets (80mb) for text-to-speech.
+
 
 ### Command Line Interface
 
