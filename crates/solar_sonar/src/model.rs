@@ -8,6 +8,10 @@ pub struct StarMap {
 }
 
 impl StarMap {
+    pub const fn get() -> &'static Self {
+        &STAR_MAP
+    }
+    
     pub fn system(&'static self, id: &SolarID) -> &'static SolarSystem {
         self.systems.iter().find(|sys| &sys.id == id).expect("system exists")
     }

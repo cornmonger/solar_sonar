@@ -1,7 +1,7 @@
 use bzip2::{read::BzDecoder, write::BzEncoder};
 use const_format::formatcp;
 use rusqlite as sqlite;
-use std::{ffi::OsStr, fs::{self, File}, io::{self, Write}, path::{Path, PathBuf}, process::{Command, ExitStatus, Stdio}, time::SystemTime};
+use std::{ffi::OsStr, fs::{self, File}, io::{self, Write}, path::{Path, PathBuf}, process::{Command, Stdio}};
 use quote::quote;
 use proc_macro2::Literal;
 
@@ -162,7 +162,7 @@ fn generate_starmap_rs(sql: &sqlite::Connection) {
 }
 
 const ASSETS_REPO_DIR: &'static str = "../solar_sonar_assets";
-const ASSETS_REPO_ESPEAK_DIR: &'static str = "thirdparty/espeak";
+//const ASSETS_REPO_ESPEAK_DIR: &'static str = "thirdparty/espeak";
 const ESPEAK_BUILD_CHERRY_FILE: &'static str = "en_dict";
 const ASSET_ESPEAK_DATA_BZ2: &'static str = "thirdparty/espeak/espeak_data.tar.bz2";
 
@@ -288,14 +288,14 @@ where
     Ok(output)
 }
 
-fn git_code<I, S>(dir: &Path, args: I) -> io::Result<ExitStatus>
+/*fn git_code<I, S>(dir: &Path, args: I) -> io::Result<ExitStatus>
 where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
     let mut cmd = make_git_command(dir, args, true);
     cmd.status()
-}
+}*/
 
 fn make_git_command<I, S>(dir: &Path, args: I, status: bool) -> Command
 where

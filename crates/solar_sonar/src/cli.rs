@@ -7,8 +7,10 @@ pub struct Cli {
     /// Systems to watch
     pub watch_systems: String,
     /// Jump range of systems
-    #[clap(default_value_t = 2)]
+    #[clap(default_value_t = Args::DEFAULT_JUMPS)]
     pub jumps: u8,
+    #[clap(default_value_t = Args::DEFAULT_STDIO)]
+    pub stdio: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -16,9 +18,13 @@ pub struct Args {
     pub watch_character_ids: Vec<CharacterID>,
     pub watch_system_ids: Vec<SolarID>,
     pub jumps: u8,
+    pub stdio: bool,
 }
 
 impl Args {
+    pub const DEFAULT_JUMPS: u8 = 2;
+    pub const DEFAULT_STDIO: bool = true;
+
     pub(crate) fn try_from_cli(cli: Cli, cfg: &Config) -> SolarResult<Self> {
         let jumps = cli.jumps;
         let watch_character_ids = cli.watch_characters.split(',')
@@ -38,7 +44,12 @@ impl Args {
             )
             .collect::<SolarResult<Vec<_>>>()?;
 
-        Ok(Self { watch_character_ids, watch_system_ids, jumps })
+        Ok(Self {
+            watch_character_ids,
+            watch_system_ids,
+            jumps,
+            stdio: true,
+        })
     }
 
     pub(crate) fn watch_characters<'a>(&self, cfg: &'a Config) -> Vec<&'a CharacterConfig> {

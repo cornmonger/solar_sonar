@@ -5,20 +5,30 @@ const CONFIG_DIR: &'static str = ".config/solar_sonar";
 const DEFAULT_CHARACTERS_TOML: &'static str = include_str!("../assets/config/default/characters.toml");
 const DEFAULT_SETTINGS_TOML: &'static str = include_str!("../assets/config/default/settings.toml");
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Config {
     pub characters: Vec<CharacterConfig>,
     pub logs_dir: PathBuf,
 }
 
 impl Config {
-    pub(crate) fn read() -> SolarResult<Self> {
-        let config_dir = RunSys::get().dirs.home_dir().join(CONFIG_DIR);
+    pub fn read() -> SolarResult<Self> {
+        let config_dir = SolarSonar::get().dirs.home_dir().join(CONFIG_DIR);
         if !config_dir.exists() {
             fs::create_dir_all(&config_dir)
                 .map_err(|e| SolarError::mkdir(e, &config_dir))?;
         }
 
+        Self::read_dir(&config_dir)
+    }
+
+    pub fn read_dir(config_dir: &Path) -> SolarResult<Self> {
+        let config_dir = match config_dir.is_absolute() {
+            true => Cow::Borrowed(config_dir),
+            false => shellexpand::path::full(config_dir)
+                .map_err(|e| SolarError::path(e, config_dir))?
+        };
+        
         let settings = SettingsToml::read(&config_dir)?;
         let characters = CharactersToml::read(&config_dir)?
             .character.into_iter()
@@ -39,7 +49,7 @@ impl Config {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CharacterConfig {
     pub alias: String,
     pub id: CharacterID,

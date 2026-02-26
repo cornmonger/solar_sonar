@@ -14,17 +14,18 @@ pub(crate) mod run;
 pub(crate) mod stdio;
 
 pub use self::{
+    cli::Args,
+    config::{Config, CharacterConfig},
+    generated::starmap::STAR_MAP,
     model::*,
-    run::{run,run_with},
+    run::{run,start,SolarSonar},
 };
 
 pub(crate) use self::{
     assets::*,
     error::*,
     cli::*,
-    config::*,
     fortune::*,
-    generated::starmap::*,
     logs::*,
     paths::*,
     audio::*,

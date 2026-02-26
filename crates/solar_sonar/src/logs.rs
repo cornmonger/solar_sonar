@@ -21,24 +21,25 @@ pub(crate) struct Log {
     sources: HashMap<CharacterID, LogSource>,
 }
 
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub(crate) struct LogEntry {
+#[derive(Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct LogEntry {
     pub datetime: DateTime<Utc>,
     pub author: String,
     pub content: String,
     pub analysis: LogAnalysis,
 }
 
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub(crate) struct LogAnalysis {
+#[derive(Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct LogAnalysis {
     pub systems: Vec<SolarID>,
     pub keywords: Vec<LogKeyword>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
-pub(crate) enum LogKeyword {
+#[derive(Debug, Clone, Copy, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum LogKeyword {
     Clear,
     NoVisual,
+    Status,
 }
 
 impl LogKeyword {
@@ -46,7 +47,16 @@ impl LogKeyword {
         match s {
             "CLEAR" | "CLR" => Some(Self::Clear),
             "NV" => Some(Self::NoVisual),
+            "STATUS" => Some(Self::Status),
             _ => None
+        }
+    }
+
+    pub fn is_alert(&self) -> bool {
+        match self {
+            Self::Clear => false,
+            Self::NoVisual => true,
+            Self::Status => false,
         }
     }
 }
@@ -208,7 +218,7 @@ impl LogEntry {
     pub fn display_ansi(&self, alert: bool) -> LogEntryAnsi<'_> { LogEntryAnsi(self, alert) }
 }
 
-pub(crate) struct LogEntryAnsi<'a>(&'a LogEntry, bool);
+pub struct LogEntryAnsi<'a>(&'a LogEntry, bool);
 
 impl<'a> std::fmt::Display for LogEntryAnsi<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

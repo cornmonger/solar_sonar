@@ -1,7 +1,7 @@
 use crate::*;
 
 pub fn run() -> ExitCode {
-    if handle_error(RunSys::init_once()).is_err() {
+    if handle_error(SolarSonar::init_once()).is_err() {
         return ExitCode::FAILURE;
     }
     
@@ -13,17 +13,27 @@ pub fn run() -> ExitCode {
         return ExitCode::FAILURE
     };
 
-    let run = Running { args, cfg };
+    let run = Running { args, cfg, stdio: Some(StdIO::default()), event_io: None };
     match handle_error(run_cli(run)) {
         Ok(_) => ExitCode::SUCCESS,
         Err(_) => ExitCode::FAILURE,
     }
 }
 
-pub fn run_with(args: Args, cfg: Config) -> SolarResult<()> {
-    handle_error(RunSys::init_once())?;
-    let run = Running { args, cfg };
-    handle_error(run_cli(run))
+pub fn start(args: Args, cfg: Config, event_io: EventIO) -> SolarResult<tokio::task::JoinHandle<SolarResult<()>>> {
+    handle_error(SolarSonar::init_once())?;
+
+    let stdio = match args.stdio {
+        true => Some(StdIO::default()),
+        false => None,
+    };
+
+    let run = Running { args, cfg, stdio, event_io: Some(event_io) };
+    let handle = tokio::task::spawn_blocking(move || {
+        handle_error(run_cli(run))
+    });
+
+    Ok(handle)
 }
 
 fn handle_error<T>(result: SolarResult<T>) -> SolarResult<T> {
@@ -40,16 +50,60 @@ fn handle_error<T>(result: SolarResult<T>) -> SolarResult<T> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum Event {
+    Downloading {
+        id: u8,
+    },
+    Download {
+        id: u8,
+        success: bool,
+    },
+    Args {
+        system_ids: Vec<SolarID>,
+        character_ids: Vec<CharacterID>,
+        channels: Vec<String>,
+        jumps: u8,
+        system_range: Vec<SolarID>,
+    },
+    LogEntry {
+        entry: LogEntry,
+    },
+    PingFortune,
+    PingSystems {
+        system_ids: Vec<SolarID>,
+    },
+}
+
 fn run_cli(run: Running) -> SolarResult<()> {
     for asset in RemoteAssets::all() {
         let filepath = asset.filepath()?;
         if filepath.exists() { continue }
-        print!("{INFO} downloading asset {MAGENTA}{}{CLR} ... ", asset.name);
+
+        if run.stdio.is_some() {
+            print!("{INFO} downloading asset {MAGENTA}{}{CLR} ... ", asset.name);
+        }
+        if let Some(event_io) = &run.event_io {
+            event_io.send(Event::Downloading { id: asset.id })?;
+        }
+
         let _ = io::stdout().flush();
         match asset.download() {
-            Ok(_) => println!("{GREEN}done{CLR}"),
+            Ok(_) => {
+                if run.stdio.is_some() {
+                    println!("{GREEN}done{CLR}");
+                }
+                if let Some(event_io) = &run.event_io {
+                    event_io.send(Event::Download { id: asset.id, success: true })?;
+                }
+            },
             Err(e) => {
-                println!("{RED}failed{CLR}");
+                if run.stdio.is_some() {
+                    println!("{RED}failed{CLR}");
+                }
+                if let Some(event_io) = &run.event_io {
+                    event_io.send(Event::Download { id: asset.id, success: false })?;
+                }
                 return Err(e);
             },
         }
@@ -73,7 +127,7 @@ fn run_cli(run: Running) -> SolarResult<()> {
         .flatten()
         .collect::<Vec<_>>();
 
-    {
+    if run.stdio.is_some() {
         let systems = run.args.watch_systems().into_iter()
             .map(|sys| format!("{BRIGHT_BLUE}{}{CLR}", sys.name) )
             .collect::<Vec<_>>()
@@ -95,6 +149,15 @@ fn run_cli(run: Running) -> SolarResult<()> {
         
         println!("{INFO} watching {systems} for {characters} in {channels}");
         println!("{INFO} within {} jumps: {range}", run.args.jumps);
+    }
+    if let Some(event_io) = &run.event_io {
+        event_io.send(Event::Args {
+            system_ids: run.args.watch_system_ids.clone(),
+            character_ids: run.args.watch_character_ids.clone(),
+            channels: watch_channels.iter().map(|s| s.to_string()).collect(),
+            jumps: run.args.jumps,
+            system_range: watch_range.iter().map(|sys| sys.id).collect(),
+        })?;
     }
 
     play_ping(vec![fortune()])?;
@@ -119,7 +182,12 @@ fn run_cli(run: Running) -> SolarResult<()> {
                 .collect::<Vec<_>>();
 
             let alert = !matched_systems.is_empty();
-            println!("{}", entry.display_ansi(alert));
+            if run.stdio.is_some() {
+                println!("{}", entry.display_ansi(alert));
+            }
+            if let Some(event_io) = &run.event_io {
+                event_io.send(Event::LogEntry { entry: entry.clone() })?;
+            }
 
             if !alert {
                 continue;
@@ -128,8 +196,17 @@ fn run_cli(run: Running) -> SolarResult<()> {
             let names = matched_systems.iter()
                 .map(|sys| sys.name)
                 .collect::<Vec<_>>();
+    
+            let ignored = entry.analysis.keywords.iter()
+                .fold(false, |ignored, keyword| ignored || keyword.is_alert());
 
-            if !entry.analysis.keywords.contains(&LogKeyword::Clear) {
+            if !ignored {
+                if let Some(event_io) = &run.event_io {
+                    event_io.send(Event::PingSystems {
+                        system_ids: matched_systems.iter().map(|sys| sys.id).collect()
+                    })?;
+                }
+
                 play_ping_systems(names)?;
             }
         }
@@ -141,17 +218,42 @@ fn run_cli(run: Running) -> SolarResult<()> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Running {
-    pub args: Args,
-    pub cfg: Config,
+#[derive(Debug)]
+pub(crate) struct Running {
+    pub(crate) args: Args,
+    pub(crate) cfg: Config,
+    pub(crate) stdio: Option<StdIO>,
+    pub(crate) event_io: Option<EventIO>,
 }
 
-pub(crate) struct RunSys {
+#[derive(Debug, Default)]
+pub(crate) struct StdIO;
+
+#[derive(Debug)]
+pub struct EventIO {
+    pub(crate) tx: EventTx,
+}
+
+pub type EventTx = tokio::sync::mpsc::UnboundedSender<Event>;
+pub type EventRx = tokio::sync::mpsc::UnboundedReceiver<Event>;
+
+impl EventIO {
+    pub(crate) fn new() -> (Self, EventRx) {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        ( Self { tx }, rx )
+    }
+
+    pub(crate) fn send(&self, event: Event) -> SolarResult<()> {
+        self.tx.send(event)
+            .map_err(|e| SolarError::send(e))
+    }
+}
+
+pub struct SolarSonar {
     pub(crate) dirs: directories::BaseDirs,
 }
 
-impl RunSys {
+impl SolarSonar {
     fn init() -> SolarResult<Self> {
         let dirs = directories::BaseDirs::new()
             .ok_or_else(|| SolarError::msg("Failed to load system directories"))?;
@@ -161,14 +263,18 @@ impl RunSys {
         })
     }
 
-    fn init_once() -> SolarResult<&'static RunSys> {
-        let runsys = RunSys::init()?;
+    pub fn init_once() -> SolarResult<&'static SolarSonar> {
+        let runsys = SolarSonar::init()?;
         Ok(RUN_SYS.get_or_init(|| runsys))
     }
 
     pub(crate) fn get() -> &'static Self {
         RUN_SYS.get_or_init(|| panic!("System not initialized"))
     }
+
+    pub fn make_io() -> (EventIO, EventRx) {
+        EventIO::new()
+    }
 }
 
-pub(crate) static RUN_SYS: OnceLock<RunSys> = OnceLock::new();
+pub(crate) static RUN_SYS: OnceLock<SolarSonar> = OnceLock::new();

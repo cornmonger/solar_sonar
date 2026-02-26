@@ -12,10 +12,18 @@ pub enum SolarError {
         op: IoOp,
         file: PathBuf,
     },
+    #[snafu(display("Failed to expand path variables: {p}", p=path.to_string_lossy()))]
+    Path {
+        source: shellexpand::path::LookupError<env::VarError>,
+        path: PathBuf,
+    },
     #[snafu(display("Failed to parse config: {p}", p=file.to_string_lossy()))]
     Cfg {
         source: toml::de::Error,
         file: PathBuf,
+    },
+    #[snafu(display("Failed to send event I/O"))]
+    Send {
     },
 }
 
@@ -25,12 +33,14 @@ pub enum IoOp {
     Read,
     Write,
     List,
+    Path,
     MakeDir,
 }
 
 impl std::fmt::Display for IoOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Path => f.write_str("parse path"),
             Self::Read => f.write_str("read file"),
             Self::Write => f.write_str("write file"),
             Self::List => f.write_str("list directory"),
@@ -74,5 +84,13 @@ impl SolarError {
     pub(crate) fn mkdir<P: AsRef<Path>>(source: io::Error, file: P) -> Self {
         let file = short_path(file.as_ref());
         Self::FileIO { source, op: IoOp::MakeDir, file }
+    }
+
+    pub(crate) fn path<P: Into<PathBuf>>(source: shellexpand::path::LookupError<std::env::VarError>, path: P) -> Self {
+        Self::Path { source, path: path.into() }
+    }
+
+    pub(crate) fn send<T>(_source: tokio::sync::mpsc::error::SendError<T>) -> Self {
+        Self::Send {}
     }
 }

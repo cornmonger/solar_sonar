@@ -1,6 +1,7 @@
 use crate::*;
 
 pub(crate) struct RemoteAsset {
+    pub id: u8,
     pub name: &'static str,
     pub dir: AssetDir,
     pub kind: AssetKind,
@@ -94,6 +95,7 @@ impl RemoteAssets {
         // Info: https://github.com/rhasspy/piper/blob/master/VOICES.md
         // License: MIT
         RemoteAsset {
+            id: 0,
             name: "Voice Model Configuration",
             dir: AssetDir::Data,
             kind: AssetKind::File,
@@ -106,6 +108,7 @@ impl RemoteAssets {
         // Info: https://github.com/rhasspy/piper/blob/master/VOICES.md
         // License: MIT
         RemoteAsset {
+            id: 1,
             name: "Voice Model",
             dir: AssetDir::Data,
             kind: AssetKind::File,
@@ -116,6 +119,7 @@ impl RemoteAssets {
         //    via project: piper-rs
         // License: GPL3
         RemoteAsset {
+            id: 2,
             name: "ESpeak Data",
             dir: AssetDir::Data,
             kind: AssetKind::ZipDir,
@@ -124,11 +128,17 @@ impl RemoteAssets {
         }
     ];
 
+    #[inline]
     pub const fn get(&self) -> &'static RemoteAsset {
+        &Self::REMOTE_ASSETS[self.id() as usize]
+    }
+
+    #[inline]
+    pub const fn id(&self) -> u8 {
         match self {
-            Self::VoiceModelConfig => &Self::REMOTE_ASSETS[0],
-            Self::VoiceModel => &Self::REMOTE_ASSETS[1],
-            Self::EspeakData => &Self::REMOTE_ASSETS[2],
+            Self::VoiceModelConfig => 0,
+            Self::VoiceModel => 1,
+            Self::EspeakData => 2,
         }
     }
 

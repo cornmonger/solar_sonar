@@ -29,5 +29,9 @@ serde.workspace = true
 shellexpand.workspace = true
 snafu.workspace = true
 tar.workspace = true
+tokio.workspace = true
 toml.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
 

@@ -3,7 +3,7 @@ use crate::*;
 pub(crate) const SOLAR_SUBDIR: &'static str = "solar_sonar";
 
 pub(crate) fn data_dir() -> SolarResult<PathBuf> {
-    let dir = RunSys::get().dirs.data_dir().join(SOLAR_SUBDIR);
+    let dir = SolarSonar::get().dirs.data_dir().join(SOLAR_SUBDIR);
     if !dir.exists() {
         fs::create_dir_all(&dir)
             .map_err(|e| SolarError::mkdir(e, "Unable to make data directory"))?;
@@ -15,7 +15,7 @@ pub(crate) fn data_dir() -> SolarResult<PathBuf> {
 /// SAFETY: panics
 pub(crate) fn short_path<P: AsRef<Path> + Into<PathBuf>>(path: P) -> PathBuf {
     let path = path.as_ref();
-    match path.strip_prefix(RunSys::get().dirs.home_dir()) {
+    match path.strip_prefix(SolarSonar::get().dirs.home_dir()) {
         Ok(p) => Path::new("~/").join(p),
         Err(_) => path.into(),
     }
