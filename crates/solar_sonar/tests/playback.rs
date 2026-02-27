@@ -1,52 +1,55 @@
 use solar_sonar as sonar;
 use pretty_assertions::assert_eq;
-use std::{path::Path, sync::OnceLock};
+use std::{ffi::OsStr, path::{Path, PathBuf}, sync::OnceLock};
 
 
 const TEST_CONFIG_DIR: &'static str = "$CARGO_MANIFEST_DIR/assets/tests/config";
 
 struct TestConfig {
-    characters: &'static [TestCharacterConfig],
+    characters: &'static [TestCharacterCfg],
     logs_dir: &'static str,
 }
 
-impl Into<sonar::Config> for TestConfig {
-    fn into(self) -> sonar::Config {
-        sonar::Config {
-            characters: self.characters.into_iter()
+fn expand_path<P: AsRef<OsStr>>(path: P) -> PathBuf {
+    shellexpand::path::full(path.as_ref()).unwrap().into()
+}
+
+impl Into<sonar::Cfg> for TestConfig {
+    fn into(self) -> sonar::Cfg {
+        sonar::Cfg {
+            characters: self.characters.iter()
                 .map(|c| c.into())
                 .collect::<Vec<_>>(),
-            logs_dir: shellexpand::path::full(self.logs_dir).unwrap().into(),
+            settings: sonar::SettingsCfg {
+                logs_dir: expand_path(self.logs_dir),
+            },
         }
     }
 }
 
-struct TestCharacterConfig {
+struct TestCharacterCfg {
     alias: &'static str,
     id: u32,
-    id_str: &'static str,
     intel_channels: &'static [&'static str],
 }
 
-impl Into<sonar::CharacterConfig> for &TestCharacterConfig {
-    fn into(self) -> sonar::CharacterConfig {
-        sonar::CharacterConfig {
+impl Into<sonar::CharacterCfg> for &TestCharacterCfg {
+    fn into(self) -> sonar::CharacterCfg {
+        sonar::CharacterCfg {
             alias: self.alias.to_string(),
             id: self.id,
-            id_str: self.id_str.to_string(),
-            intel_channels: self.intel_channels.into_iter()
+            intel_channels: self.intel_channels.iter()
                 .map(|s| s.to_string())
-                .collect::<Vec<_>>(),
-        }
+                .collect(),
+       }
     }
 }
 
 const TEST_CONFIG: TestConfig = TestConfig {
     characters: &[
-        TestCharacterConfig {
+        TestCharacterCfg {
             alias: "test",
             id: 12345,
-            id_str: "12345",
             intel_channels: &[
                 "test.intel",
             ],
@@ -55,10 +58,13 @@ const TEST_CONFIG: TestConfig = TestConfig {
     logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs",
 };
 
-fn test_config() -> sonar::Config { TEST_CONFIG.into() }
+fn test_config() -> sonar::CfgParam {
+    let cfg: sonar::Cfg = TEST_CONFIG.into();
+    cfg.build().expect("build")
+}
 
-fn home_config() -> sonar::Config {
-    sonar::Config::read().unwrap()
+fn home_config() -> sonar::CfgParam {
+    sonar::Cfg::read().expect("home")
 }
 
 fn setup() {
@@ -69,7 +75,7 @@ fn setup() {
 #[test]
 fn test_configs() {
     setup();
-    let actual = sonar::Config::read_dir(Path::new(TEST_CONFIG_DIR)).unwrap();
+    let actual = sonar::Cfg::read_dir(Path::new(TEST_CONFIG_DIR)).unwrap();
     assert_eq!(test_config(), actual);
 }
 
@@ -78,41 +84,54 @@ fn test_system() -> &'static sonar::SolarSystem {
     sonar::StarMap::get().system_named(TEST_SYSTEM)
 }
 
-fn test_args(cfg: &sonar::Config, sys: &sonar::SolarSystem) -> sonar::Args {
+fn test_args(cfg_param: &sonar::CfgParam, sys: &sonar::SolarSystem) -> sonar::ArgParam {
     sonar::Args {
-        watch_character_ids: vec![cfg.characters[0].id],
+        watch_character_ids: vec![cfg_param.config.characters[0].id],
         watch_system_ids: vec![sys.id],
         jumps: sonar::Args::DEFAULT_JUMPS,
-        stdio: true,
+        stdio: false,
+        audio: false,
+        replay_file: None,
+    }.build().expect("args")
+}
+
+
+#[tokio::test]
+async fn test_play_fixture() {
+    const REPLAY: &'static str = "$CARGO_MANIFEST_DIR/assets/tests/logs/Chatlogs/test.intel_20260217_130052_12345.txt";
+
+    setup();
+    let sys = test_system();
+    let cfg_param = test_config(); 
+    let mut arg_param = test_args(&cfg_param, sys);
+    arg_param.args.replay_file = Some(expand_path(REPLAY));
+
+    let (event_io, mut event_rx) = sonar::SolarSonar::make_io();
+    let _handle = sonar::start(arg_param, cfg_param, event_io).unwrap();
+
+    loop {
+        tokio::select! {
+            Some(event) = event_rx.recv() => {
+                dbg!(event);
+            },
+            else => break,
+        }
     }
 }
 
-/*
-#[tokio::test]
-async fn test_play_fixture() {
-    setup();
-    let sys = test_system();
-    let cfg = test_config(); 
-    let args = test_args(&cfg, sys);
-    let (event_io, mut event_rx) = sonar::SolarSonar::make_io();
-    let handle = sonar::start(args, cfg, event_io).unwrap();
-    let mut events = Vec::new();
-    tokio::time::timeout(Duration::from_secs(10), async {
-        let _ = event_rx.recv_many(&mut events, 5_000).await;
-    }).await.unwrap();
-    dbg!(events);
-}*/
 
 #[ignore]
 #[tokio::test]
 async fn live() {
     setup();
     let sys = test_system();
-    let cfg = home_config(); 
-    let mut args = test_args(&cfg, sys);
-    args.jumps = 10;
+    let cfg_param = home_config(); 
+    let mut arg_param = test_args(&cfg_param, sys);
+    arg_param.args.audio = true;
+    arg_param.args.stdio = true;
+    arg_param.args.jumps = 10;
     let (event_io, mut event_rx) = sonar::SolarSonar::make_io();
-    let _handle = sonar::start(args, cfg, event_io).unwrap();
+    let _handle = sonar::start(arg_param, cfg_param, event_io).unwrap();
 
     loop {
         tokio::select! {

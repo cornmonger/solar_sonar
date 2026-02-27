@@ -24,3 +24,14 @@ pub(crate) fn short_path<P: AsRef<Path> + Into<PathBuf>>(path: P) -> PathBuf {
 pub(crate) fn log_path<P: AsRef<Path> + Into<PathBuf>>(path: P) -> String {
     short_path(path).to_string_lossy().to_string()
 }
+
+pub(crate) fn expand_path(path: &Path) -> SolarResult<Cow<'_, Path>> {
+    shellexpand::path::full(path)
+        .map_err(|e| SolarError::path(e, path))
+}
+
+pub(crate) fn expand_pathbuf<P: AsRef<Path>>(path: P) -> SolarResult<PathBuf> {
+    shellexpand::path::full(path.as_ref())
+        .map(|p| p.to_path_buf())
+        .map_err(|e| SolarError::path(e, path.as_ref()))
+}

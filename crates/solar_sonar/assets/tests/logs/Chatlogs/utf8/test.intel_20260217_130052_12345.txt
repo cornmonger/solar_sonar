@@ -1,0 +1,47 @@
+﻿
+
+
+
+        ---------------------------------------------------------------
+
+          Channel ID:      player_f020afc023c511ef9c0f00109bd0fb10
+          Channel Name:    test.intel
+          Listener:        Tester User Name
+          Session started: 2026.02.17 13:00:52
+        ---------------------------------------------------------------
+
+﻿[ 2026.02.17 13:00:56 ] EVE System > Channel MOTD: This is a test MOTD
+﻿[ 2026.02.17 13:01:40 ] TESTING > BEGIN WILD
+﻿[ 2026.02.17 13:01:42 ] Test 01 > RNF-YH  Target Name
+﻿[ 2026.02.17 13:03:01 ] Test User Name > AZN-D2  Target Name  Imicus
+﻿[ 2026.02.17 13:04:16 ] TEST UZER > Target Name Alpha  B-1UJC NV
+﻿[ 2026.02.17 13:04:50 ] Test Name > UALX-3  Target Name Docked in keep
+﻿[ 2026.02.17 13:05:49 ] User Test > target-name  RF6T-8
+﻿[ 2026.02.17 13:08:35 ] Test nAme > Targetname  8B-2YA
+﻿[ 2026.02.17 13:08:50 ] Test nAme > Astero  Targetname  8B-2YA
+﻿[ 2026.02.17 13:11:21 ] Test 01 > MB-NKE  Target Name
+﻿[ 2026.02.17 13:11:30 ] Test 02 > Target  GE-8JV
+﻿[ 2026.02.17 13:13:13 ] Test 03 > V-3YG7  Target
+﻿[ 2026.02.17 13:18:13 ] Test 01 > MB-NKE clr
+﻿[ 2026.02.17 13:19:19 ] Test 04 > Target-User-Name  CKX-RW*
+﻿[ 2026.02.17 13:23:26 ] Test 01 > KCDX-7*  TargetII  伊什塔级*
+﻿[ 2026.02.17 13:32:23 ] Test Name > Target Target02  Target Name  TArget13  target  8-WYQZ saber on grid, ansi to W2 is bubbled
+﻿[ 2026.02.17 13:32:48 ] Test 02 > they are going back to C-J
+﻿[ 2026.02.17 13:33:02 ] Test 03 > 8-WYQZ fareast
+﻿[ 2026.02.17 13:44:27 ] Test 01 > Target Name maled + heron ni + ?
+﻿[ 2026.02.17 13:44:47 ] Test 03 > UALX-3  亥伯龙神级 nv
+﻿[ 2026.02.17 13:45:13 ] Test 01 > UALX-3  Target User
+﻿[ 2026.02.17 13:45:27 ] Test 02 > HY-RWO  skt-10001  Target User
+﻿[ 2026.02.17 13:46:09 ] Test 03 > UALX-3 clr
+﻿[ 2026.02.17 13:46:32 ] Test 04 > test-10001 +1 EX6-AO nv
+﻿[ 2026.02.17 14:22:27 ] Test 01 > CKX-RW*  Target Name Name
+﻿[ 2026.02.17 14:22:57 ] Test 04 > ZD1-Z2 clr
+﻿[ 2026.02.17 14:26:03 ] Test 05 > Target Name any dscan?
+﻿[ 2026.02.17 14:27:25 ] Test 01 > 10+  Q-U96U
+﻿[ 2026.02.17 14:27:28 ] Test 02 > Q-U https://example.tld/intel/scan/Fa8BwMz3NV50gmEmo8MpBd00aBPl1z/
+﻿[ 2026.02.17 14:27:32 ] Test 02 > ESS
+﻿[ 2026.02.17 14:28:04 ] Test 02 > Q-U96U https://example.tld/intel/scan/Fa8BwMz3NV50gmEmo8MpBd00aBPl1z/
+﻿[ 2026.02.17 14:39:12 ] Test N'ame > 6-IAFR  Target Name now capsule :)
+﻿[ 2026.02.17 14:41:15 ] Test N'ame > 6-IAFR clr
+﻿[ 2026.02.17 14:43:54 ] Test > 78TS-Q  Target
+﻿[ 2026.02.17 14:43:55 ] TESTING > END WILD

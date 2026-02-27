@@ -6,29 +6,51 @@ pub fn run() -> ExitCode {
     }
     
     let cli = Cli::parse();
-    let Ok(cfg) = handle_error(Config::read()) else {
+    let Ok(CfgParam{config, mut chat_channels}) = handle_error(Cfg::read()) else {
         return ExitCode::FAILURE
     };
-    let Ok(args) = handle_error(Args::try_from_cli(cli, &cfg)) else {
+    let Ok(args_param) = handle_error(Args::try_from_cli(cli, &config)) else {
         return ExitCode::FAILURE
     };
 
-    let run = Running { args, cfg, stdio: Some(StdIO::default()), event_io: None };
+    let ArgParam{args, chat_channels: args_chat_channels} = args_param;
+    let arg_channel_ids;
+    if let Some(args_chat_channels) = args_chat_channels {
+        arg_channel_ids = args_chat_channels.iter().map(|c| c.id).collect::<Vec<_>>();
+        chat_channels.extend(args_chat_channels);
+    } else {
+        arg_channel_ids = vec![];
+    }
+
+    let run = Running { args, cfg: config, chat_channels, arg_channel_ids, stdio: Some(StdIO::default()), event_io: None };
+
     match handle_error(run_cli(run)) {
         Ok(_) => ExitCode::SUCCESS,
         Err(_) => ExitCode::FAILURE,
     }
 }
 
-pub fn start(args: Args, cfg: Config, event_io: EventIO) -> SolarResult<tokio::task::JoinHandle<SolarResult<()>>> {
+pub fn start(arg: ArgParam, cfg: CfgParam, io: EventIO) -> SolarResult<tokio::task::JoinHandle<SolarResult<()>>> {
     handle_error(SolarSonar::init_once())?;
+
+    let ArgParam { args, chat_channels: args_chat_channels } = arg;
+    let CfgParam { config, mut chat_channels } = cfg;
 
     let stdio = match args.stdio {
         true => Some(StdIO::default()),
         false => None,
     };
 
-    let run = Running { args, cfg, stdio, event_io: Some(event_io) };
+    let arg_channel_ids;
+    if let Some(args_chat_channels) = args_chat_channels {
+        arg_channel_ids = args_chat_channels.iter().map(|c| c.id).collect::<Vec<_>>();
+        chat_channels.extend(args_chat_channels);
+    } else {
+        arg_channel_ids = vec![];
+    }
+
+    let run = Running { args, cfg: config, chat_channels, arg_channel_ids, stdio, event_io: Some(io) };
+    
     let handle = tokio::task::spawn_blocking(move || {
         handle_error(run_cli(run))
     });
@@ -82,12 +104,12 @@ fn run_cli(run: Running) -> SolarResult<()> {
 
         if run.stdio.is_some() {
             print!("{INFO} downloading asset {MAGENTA}{}{CLR} ... ", asset.name);
+            let _ = io::stdout().flush();
         }
         if let Some(event_io) = &run.event_io {
             event_io.send(Event::Downloading { id: asset.id })?;
         }
 
-        let _ = io::stdout().flush();
         match asset.download() {
             Ok(_) => {
                 if run.stdio.is_some() {
@@ -116,10 +138,7 @@ fn run_cli(run: Running) -> SolarResult<()> {
         }
     }
     
-    let watch_channels = run.args.watch_characters(&run.cfg).iter()
-        .map(|chr| &chr.intel_channels)
-        .flatten()
-        .collect::<Vec<_>>();
+    let watch_channels = run.watch_channels();
 
     let nav = StarNavigator::default();
     let watch_range = run.args.watch_systems().iter()
@@ -154,22 +173,41 @@ fn run_cli(run: Running) -> SolarResult<()> {
         event_io.send(Event::Args {
             system_ids: run.args.watch_system_ids.clone(),
             character_ids: run.args.watch_character_ids.clone(),
-            channels: watch_channels.iter().map(|s| s.to_string()).collect(),
+            channels: watch_channels.iter().map(|s| s.name.to_string()).collect(),
             jumps: run.args.jumps,
             system_range: watch_range.iter().map(|sys| sys.id).collect(),
         })?;
     }
-
-    play_ping(vec![fortune()])?;
     
+    let (mut last_stamp, replay_log) = match &run.args.replay_file {
+        Some(p) => {
+            let log = ChatLogFile::from_path_buf(p.to_path_buf())
+                .ok_or_else(|| SolarError::msg(format!("Invalid chat log: {}", log_path(p))))?;
+
+            (log.datetime().clone(), Some(log))
+        },
+        None => (Utc::now(), None),
+    };
+
+    if run.args.audio {
+        play_ping(vec![fortune()])?;
+    }
+
     let mut logs = ChannelLogs::new_watch(&run);
-    let mut last_stamp = Utc::now();
 
     loop {
-        logs = read_intel_logs(&run, logs)?;
+        logs = match &replay_log {
+            None => read_intel_logs(&run, logs)?,
+            Some(logfile) => {
+                let read = read_intel_log_file(&logfile.path(), 0)?;
+                logs.push(&run, &logfile, read);
+                logs
+            },
+        };
+
         let stamp = last_stamp;
         let activity = watch_channels.iter()
-            .filter_map(|channel| logs.get(channel))
+            .filter_map(|channel| logs.get(channel.id))
             .flat_map(|log| log.entries.iter())
             .filter(|entry| entry.datetime > stamp)
             .filter(|entry| !entry.analysis.systems.is_empty())
@@ -181,15 +219,17 @@ fn run_cli(run: Running) -> SolarResult<()> {
                 .filter_map(|sys_id| watch_range.iter().find(|sys| &sys.id == sys_id))
                 .collect::<Vec<_>>();
 
-            let alert = !matched_systems.is_empty();
+            let in_range = !matched_systems.is_empty();
+            let danger = entry.analysis.danger();
+            
             if run.stdio.is_some() {
-                println!("{}", entry.display_ansi(alert));
+                println!("{}", entry.display_ansi(in_range, danger));
             }
             if let Some(event_io) = &run.event_io {
                 event_io.send(Event::LogEntry { entry: entry.clone() })?;
             }
 
-            if !alert {
+            if !in_range {
                 continue;
             }
 
@@ -197,22 +237,23 @@ fn run_cli(run: Running) -> SolarResult<()> {
                 .map(|sys| sys.name)
                 .collect::<Vec<_>>();
     
-            let ignored = entry.analysis.keywords.iter()
-                .fold(false, |ignored, keyword| ignored || keyword.is_alert());
-
-            if !ignored {
+            if danger {
                 if let Some(event_io) = &run.event_io {
                     event_io.send(Event::PingSystems {
                         system_ids: matched_systems.iter().map(|sys| sys.id).collect()
                     })?;
                 }
 
-                play_ping_systems(names)?;
+                if run.args.audio {
+                    play_ping_systems(names)?;
+                }
             }
         }
 
-        // sleep if there hasn't been activity 
-        if stamp == last_stamp {
+        if run.args.is_replay() {
+            return Ok(());
+        } else if stamp == last_stamp {
+            // sleep if there hasn't been activity 
             std::thread::sleep(Duration::from_secs(2))
         }
     }
@@ -221,9 +262,24 @@ fn run_cli(run: Running) -> SolarResult<()> {
 #[derive(Debug)]
 pub(crate) struct Running {
     pub(crate) args: Args,
+    pub(crate) arg_channel_ids: Vec<ChatChannelId>,
+    pub(crate) chat_channels: ChatChannels,
     pub(crate) cfg: Config,
     pub(crate) stdio: Option<StdIO>,
     pub(crate) event_io: Option<EventIO>,
+}
+
+impl Running {
+    pub(crate) fn watch_channels(&self) -> Vec<ChatChannelRef<'_>> {
+        let arg_channels = self.arg_channel_ids.iter()
+            .map(|id| self.chat_channels.find_id(*id).expect("exists"));
+
+        self.args.watch_characters(&self.cfg).iter()
+            .map(|chr| chr.intel_channels(&self.chat_channels))
+            .flatten()
+            .chain(arg_channels)
+            .collect()
+    }
 }
 
 #[derive(Debug, Default)]

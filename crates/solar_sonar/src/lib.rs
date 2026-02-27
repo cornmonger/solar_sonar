@@ -14,8 +14,8 @@ pub(crate) mod run;
 pub(crate) mod stdio;
 
 pub use self::{
-    cli::Args,
-    config::{Config, CharacterConfig},
+    cli::{Args, ArgParam},
+    config::{Cfg, CfgParam, CharacterCfg, SettingsCfg},
     generated::starmap::STAR_MAP,
     model::*,
     run::{run,start,SolarSonar},
@@ -24,6 +24,7 @@ pub use self::{
 pub(crate) use self::{
     assets::*,
     error::*,
+    config::*,
     cli::*,
     fortune::*,
     logs::*,
@@ -38,6 +39,7 @@ pub(crate) use std::{
     borrow::Cow,
     env,
     error::Error,
+    fmt::Display,
     fs::{
         self,
         File,
@@ -64,3 +66,4 @@ pub(crate) use heck::ToSnakeCase;
 pub(crate) use encoding_rs_io::DecodeReaderBytesBuilder;
 pub(crate) use encoding_rs::UTF_16LE;
 pub(crate) use const_format::formatcp;
+pub(crate) use xxhash_rust::xxh3::xxh3_64;

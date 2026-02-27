@@ -1,11 +1,13 @@
+use chrono::TimeZone;
+use std::str::FromStr;
+
 use crate::*;
 
 #[derive(Debug)]
-pub(crate) struct LogPath<'a> {
-    path: PathBuf,
-    channel: &'a str,
-    datetime: DateTime<Utc>,
-    character: &'a CharacterConfig,
+pub(crate) struct ConfiguredChatLog<'a,'b> {
+    pub(crate) file: ChatLogFile,
+    pub(crate) channel: ChatChannelRef<'b>,
+    pub(crate) character: &'a CharacterConfig,
 }
 
 #[derive(Debug)]
@@ -16,7 +18,7 @@ pub(crate) struct LogSource {
 
 #[derive(Debug)]
 pub(crate) struct Log {
-    pub channel: String,
+    pub channel_id: ChatChannelId,
     pub entries: Vec<LogEntry>,
     sources: HashMap<CharacterID, LogSource>,
 }
@@ -31,8 +33,24 @@ pub struct LogEntry {
 
 #[derive(Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct LogAnalysis {
+    pub has_unknown: bool,
     pub systems: Vec<SolarID>,
     pub keywords: Vec<LogKeyword>,
+}
+
+impl LogAnalysis {
+    pub fn danger(&self) -> bool {
+        if self.systems.is_empty() {
+            return false;
+        }
+
+        self.keywords.iter()
+            .fold(None, |danger, word| match danger {
+                None => Some(word.danger(self.has_unknown)),
+                Some(last) => Some(last || word.danger(self.has_unknown)),
+            })
+            .unwrap_or_else(|| true)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
@@ -47,195 +65,332 @@ impl LogKeyword {
         match s {
             "CLEAR" | "CLR" => Some(Self::Clear),
             "NV" => Some(Self::NoVisual),
-            "STATUS" => Some(Self::Status),
+            "STATUS" | "STATUS?" | "CLR?" | "CLEAR?" => Some(Self::Status),
             _ => None
         }
     }
 
-    pub fn is_alert(&self) -> bool {
-        match self {
-            Self::Clear => false,
-            Self::NoVisual => true,
-            Self::Status => false,
+    pub fn danger(&self, has_unknown: bool) -> bool {
+        match (self, has_unknown) {
+            (Self::Clear, false) => false,
+            (Self::Clear, true) => true,
+            (Self::NoVisual, _) => true,
+            (Self::Status, false) => false,
+            (Self::Status, true) => true,
         }
     }
 }
 
-pub(crate) struct ChannelLogs(HashMap<String, Log>);
+pub(crate) struct ChannelLogs(HashMap<ChatChannelId, Log>);
 
 impl ChannelLogs {
     pub fn new_watch(run: &Running) -> Self {
         let watch_chrs = run.args.watch_characters(&run.cfg);
         let logs = watch_chrs.iter()
-            .map(|chr| &chr.intel_channels)
+            .map(|chr| &chr.intel_channel_ids)
             .flatten()
-            .map(|channel| Log { channel: channel.to_string(), entries: vec![], sources: HashMap::new() })
-            .fold(HashMap::new(), |mut map, log| { map.insert(log.channel.to_string(), log); map });
+            .map(|channel_id| Log { channel_id: *channel_id, entries: vec![], sources: HashMap::new() })
+            .fold(HashMap::new(), |mut map, log| { map.insert(log.channel_id, log); map });
 
         Self(logs)
     }
 
-    pub fn get_mut(&mut self, channel: &str) -> Option<&mut Log> {
-        self.0.get_mut(channel)
+    pub fn get_mut(&mut self, channel_id: ChatChannelId) -> Option<&mut Log> {
+        self.0.get_mut(&channel_id)
     }
 
-    pub fn get(&self, channel: &str) -> Option<&Log> {
-        self.0.get(channel)
+    pub fn get(&self, channel_id: ChatChannelId) -> Option<&Log> {
+        self.0.get(&channel_id)
     }
 
+    pub(crate) fn push(&mut self, run: &Running, logfile: &ChatLogFile, read: LogRead) {
+        let channel = run.chat_channels.find_name(logfile.channel()).expect("chan");
+        if self.0.contains_key(&channel.id) {
+            let log = self.0.get_mut(&channel.id).expect("exists");
+            log.entries.extend(read.entries);
+            log.sources
+                .entry(logfile.character_id())
+                .and_modify(|src| {
+                    let path = logfile.path();
+                    if src.file != path {
+                        src.file = path.to_path_buf();
+                        src.cursor = 0;
+                    }
+                })
+                .or_insert(LogSource { file: logfile.path().to_path_buf(), cursor: read.cursor });
+
+        } else {
+            let log = Log {
+                channel_id: channel.id,
+                entries: read.entries,
+                sources: HashMap::from([
+                    (
+                        logfile.character_id(),
+                        LogSource {
+                            file: logfile.path().to_path_buf(),
+                            cursor: read.cursor,
+                        }
+                    ),
+                ]),
+            };
+
+            self.0.insert(channel.id, log);
+        }
+    }
+}
+
+#[ouroboros::self_referencing]
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct ChatLogFile {
+    pub(crate) path: PathBuf,
+    #[borrows(path)]
+    #[covariant]
+    parts: ChatLogFileParts<'this>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct ChatLogFileParts<'a> {
+    pub(crate) channel: &'a str,
+    pub(crate) datetime: DateTime<Utc>,
+    pub(crate) character_id: CharacterID,
+}
+
+impl ChatLogFile {
+    pub fn path(&self) -> &Path {
+        &self.borrow_path()
+    }
+
+    pub fn channel(&self) -> &str {
+        self.borrow_parts().channel
+    }
+
+    pub fn character_id(&self) -> CharacterID {
+        self.borrow_parts().character_id
+    }
+
+    pub fn datetime(&self) -> &DateTime<Utc> {
+        &self.borrow_parts().datetime
+    }
+
+    pub fn from_path_buf(path: PathBuf) -> Option<Self> {
+        const TXT: &'static str = "txt";
+        const UNDERSCORE: char = '_';
+
+        // example: "/path/to/our.intel_20260212_035141_12345678.txt";
+
+        Self::try_new(path, |path| {
+            if Some(TXT) != path.extension().and_then(|p| p.to_str()) {
+                return Err(())
+            }
+            let Some(file) = path.file_stem().and_then(|p| p.to_str()) else {
+                return Err(())
+            };
+            let Some((file, character_id)) = file.rsplit_once(UNDERSCORE) else {
+                return Err(())
+            };
+            let Some((file, time)) = file.rsplit_once(UNDERSCORE) else {
+                return Err(())
+            };
+            let Some((channel, date)) = file.rsplit_once(UNDERSCORE) else {
+                return Err(())
+            };
+            let Ok(character_id) = CharacterID::from_str(character_id) else {
+                return Err(())
+            };
+            let Some(datetime) = make_datetime(date, time) else {
+                return Err(())
+            };
+
+            Ok(ChatLogFileParts {
+                channel,
+                datetime,
+                character_id,
+            })
+        })
+        .ok()
+    }
+}
+
+fn make_datetime(date: &str, time: &str) -> Option<DateTime<Utc>> {
+    let Some(Ok(year)) = date.get(0..4).map(i32::from_str) else { return None };
+    let Some(Ok(month)) = date.get(4..6).map(u32::from_str) else { return None };
+    let Some(Ok(day)) = date.get(6..8).map(u32::from_str) else { return None };
+    let Some(Ok(hour)) = time.get(0..2).map(u32::from_str) else { return None };
+    let Some(Ok(minute)) = time.get(2..4).map(u32::from_str) else { return None };
+    let Some(Ok(second)) = time.get(4..6).map(u32::from_str) else { return None };
+
+    Utc.with_ymd_and_hms(year, month, day, hour, minute, second)
+        .single()
 }
 
 pub(crate) fn read_intel_logs(run: &Running, mut logs: ChannelLogs) -> SolarResult<ChannelLogs> {
     let chat_logs_dir = run.cfg.logs_dir.join("Chatlogs");
     let watch_chrs = run.args.watch_characters(&run.cfg);
 
-    let log_paths = fs::read_dir(&chat_logs_dir)
+    let chatlogs = fs::read_dir(&chat_logs_dir)
         .map_err(|e| SolarError::list(e, &chat_logs_dir))?
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| {
             let path = entry.path();
-            if Some("txt") != path.extension().and_then(|p| p.to_str()) {
+            let Some(file) = ChatLogFile::from_path_buf(path) else {
                 return None
-            }
-            let Some(file) = path.file_stem().and_then(|p| p.to_str()) else {
+            };
+
+            let log_character_id = file.character_id();
+            let log_channel = file.channel();
+            let Some(log_channel) = run.chat_channels.find_name(log_channel) else {
                 return None
             };
 
             for character in &watch_chrs {
-                let Some(file) = file.strip_suffix(&character.id_str) else {
-                    continue
-                };
-                let Some(file) = file.strip_suffix('_') else {
-                    continue
-                };
+                if log_character_id != character.id {
+                    continue;
+                }
+                
+                for channel_id in &character.intel_channel_ids {
+                    if log_channel.id != *channel_id {
+                        continue;
+                    }
 
-                for channel in &character.intel_channels {
-                    let Some(file) = file.strip_prefix(channel) else {
-                        continue
-                    };
-                    let Some(file) = file.strip_prefix('_') else {
-                        continue
-                    };
-                    let Ok(stamp) = NaiveDateTime::parse_from_str(file, "%Y%m%d_%H%M%S") else {
-                        continue
-                    };
-                    let datetime = stamp.and_utc();
-
-                    return Some(LogPath { path, channel, datetime, character })
+                    return Some(ConfiguredChatLog { file, character, channel: log_channel })
                 }
             }
 
             None
         })
-        .into_group_map_by(|log| (log.character.id, log.channel))
+        .into_group_map_by(|log| (log.character.id, log.channel.id))
         .into_iter()
-        .map(|(_,mut v)| {
-            v.sort_by(|a,b| a.datetime.cmp(&b.datetime));
+        .map(|(_k, mut v)| {
+            v.sort_by(|a, b| a.file.datetime().cmp(b.file.datetime()));
             v.pop().expect("value")
         })
         .collect::<Vec<_>>();
 
-    for log_path in log_paths {
-        let log = &mut logs.get_mut(log_path.channel).expect("log exists");
+    for chatlog in chatlogs {
+        let log = logs.get_mut(chatlog.channel.id).expect("log exists");
         let log_source = {
             let source = log.sources
-                .entry(log_path.character.id)
-                .or_insert(LogSource { file: log_path.path.clone(), cursor: 0 });
+                .entry(chatlog.character.id)
+                .or_insert(LogSource { file: chatlog.file.path().to_path_buf(), cursor: 0 });
 
-            if source.file != log_path.path {
-                source.file = log_path.path.clone();
+            if source.file != chatlog.file.path() {
+                source.file = chatlog.file.path().to_path_buf();
                 source.cursor = 0;
             }
 
             source
         };
 
-        let mut file = File::open(&log_path.path)
-            .map_err(|e| SolarError::read(e, &log_path.path))?;
-        file.seek(SeekFrom::Start(log_source.cursor))
-            .map_err(|e| SolarError::read(e, &log_path.path))?;
-        let file = DecodeReaderBytesBuilder::new()
-            .encoding(Some(UTF_16LE))
-            .build(file);
-        let mut reader = BufReader::new(file);
-
-        loop {
-            let mut buf = String::new();
-            let size = reader.read_line(&mut buf)
-                .map_err(|e| SolarError::read(e, &log_path.path))?;
-
-            if size == 0 || buf.chars().last() != Some('\n') { break }
-            let transcode_size = buf.encode_utf16().count() * 2;
-            log_source.cursor += transcode_size as u64;
-
-            let line = buf.trim().trim_start_matches('\u{feff}');
-            if !line.starts_with('[') { continue }
-            let pos = line.char_indices().nth(24).map(|(i,_)| i).unwrap_or(line.len());
-            let Ok(stamp) = NaiveDateTime::parse_from_str(&line[..pos], "[ %Y.%m.%d %H:%M:%S ] ") else {
-                continue
-            };
-            let datetime = stamp.and_utc();
-            let line = &line[pos..];
-
-            let Some(pos) = line.find(" > ") else { continue };
-            let author = (&line[..pos]).to_string();
-            let pos = line.char_indices().nth(pos + 3).map(|(i,_)| i).unwrap_or(line.len());
-            let content = (&line[pos..]).to_string();
-
-            let mut keywords = vec![];
-            let mut systems = vec![];
-            for word in content.split_whitespace() {
-                let word = word.trim_end_matches('*').to_uppercase();
-                if let Some(keyword) = LogKeyword::matches(&word) {
-                    keywords.push(keyword);
-                } else if let Some(system) = STAR_MAP.get_system_named(&word) {
-                    systems.push(system.id)
-                }
-            }
-
-            let analysis = LogAnalysis {
-                systems,
-                keywords,
-            };
-
-
-            let entry = LogEntry {
-                datetime,
-                author,
-                content,
-                analysis,
-            };
-
-            //dbg!(&entry);
-            log.entries.push(entry);
-        }
+        let read = read_intel_log_file(chatlog.file.path(), log_source.cursor)?;
+        log_source.cursor = read.cursor;
+        log.entries.extend(read.entries);
     }
 
     Ok(logs)
 }
 
-impl LogEntry {
-    pub fn display_ansi(&self, alert: bool) -> LogEntryAnsi<'_> { LogEntryAnsi(self, alert) }
+#[derive(Debug)]
+pub(crate) struct LogRead {
+    pub(crate) cursor: u64,
+    pub(crate) entries: Vec<LogEntry>,
 }
 
-pub struct LogEntryAnsi<'a>(&'a LogEntry, bool);
+pub(crate) fn read_intel_log_file(filepath: &Path, mut cursor: u64) -> SolarResult<LogRead> {
+    let mut entries: Vec<LogEntry> = vec![];
+
+    let mut file = File::open(&filepath)
+        .map_err(|e| SolarError::read(e, &filepath))?;
+    file.seek(SeekFrom::Start(cursor))
+        .map_err(|e| SolarError::read(e, &filepath))?;
+    let file = DecodeReaderBytesBuilder::new()
+        .encoding(Some(UTF_16LE))
+        .build(file);
+    let mut reader = BufReader::new(file);
+
+    loop {
+        let mut buf = String::new();
+        let size = reader.read_line(&mut buf)
+            .map_err(|e| SolarError::read(e, &filepath))?;
+
+        if size == 0 || buf.chars().last() != Some('\n') { break }
+        let transcode_size = buf.encode_utf16().count() * 2;
+        cursor += transcode_size as u64;
+
+        let line = buf.trim().trim_start_matches('\u{feff}');
+        if !line.starts_with('[') { continue }
+        let pos = line.char_indices().nth(24).map(|(i,_)| i).unwrap_or(line.len());
+        let Ok(stamp) = NaiveDateTime::parse_from_str(&line[..pos], "[ %Y.%m.%d %H:%M:%S ] ") else {
+            continue
+        };
+        let datetime = stamp.and_utc();
+        let line = &line[pos..];
+
+        let Some(pos) = line.find(" > ") else { continue };
+        let author = (&line[..pos]).to_string();
+        let pos = line.char_indices().nth(pos + 3).map(|(i,_)| i).unwrap_or(line.len());
+        let content = (&line[pos..]).to_string();
+
+        let mut keywords = vec![];
+        let mut systems = vec![];
+        let words = content.split_whitespace();
+        let mut num_words = 0;
+        for word in words {
+            num_words += 1;
+            let word = word.trim_end_matches('*').to_uppercase();
+            if let Some(keyword) = LogKeyword::matches(&word) {
+                keywords.push(keyword);
+            } else if let Some(system) = STAR_MAP.get_system_named(&word) {
+                systems.push(system.id)
+            }
+        }
+
+        let analysis = LogAnalysis {
+            has_unknown: num_words > (systems.len() + keywords.len()),
+            systems,
+            keywords,
+        };
+
+
+        let entry = LogEntry {
+            datetime,
+            author,
+            content,
+            analysis,
+        };
+
+        entries.push(entry);
+    }
+
+    Ok(LogRead { cursor, entries })
+}
+
+impl LogEntry {
+    pub fn display_ansi(&self, in_range: bool, danger: bool) -> LogEntryAnsi<'_> {
+        LogEntryAnsi { entry: self, in_range, danger }
+    }
+}
+
+pub struct LogEntryAnsi<'a> {
+    entry: &'a LogEntry,
+    in_range: bool,
+    danger: bool
+}
 
 impl<'a> std::fmt::Display for LogEntryAnsi<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let stamp = self.0.datetime.format("%m-%d %H:%M");
-        let author = format!("{:<37}", self.0.author);
-        let sys_names = self.0.analysis.systems.iter()
+        let stamp = self.entry.datetime.format("%m-%d %H:%M");
+        let author = format!("{:<37}", self.entry.author);
+        let sys_names = self.entry.analysis.systems.iter()
             .map(|id| STAR_MAP.system(id).name)
             .collect::<Vec<_>>();
 
-        let alert = self.1;
-        let (stamp_color, author_color, sys_color, text_color) = if alert {
-            (WHITE_ON_RED, RED, YELLOW, RED)
-        } else {
-            (WHITE, GRAY, BRIGHT_BLUE, WHITE)
+        let (stamp_color, author_color, sys_color, text_color) = match (self.in_range, self.danger) {
+            (true, true) => (WHITE_ON_RED, RED, YELLOW, RED),
+            (true, false) => (WHITE_ON_ORANGE, ORANGE, YELLOW, ORANGE),
+            (false, _) => (WHITE, GRAY, BRIGHT_BLUE, WHITE),
         };
 
-        let mut words = self.0.content.split_whitespace()
+        let mut words = self.entry.content.split_whitespace()
             .map(|w| {
                 let up = w.trim_end_matches('*').to_uppercase();
                 if sys_names.contains(&up.as_str()) {
@@ -247,7 +402,7 @@ impl<'a> std::fmt::Display for LogEntryAnsi<'a> {
             .collect::<Vec<_>>();
 
         // place system in the beginning, as god intended
-        let sys_word = if self.0.analysis.systems.len() == 1 {
+        let sys_word = if self.entry.analysis.systems.len() == 1 {
             words.iter()
                 .position(|w| w.is_system())
                 .and_then(|pos| Some(format!("{sys_color}{} {CLR}", words.remove(pos))))
@@ -256,7 +411,7 @@ impl<'a> std::fmt::Display for LogEntryAnsi<'a> {
         }.unwrap_or_default();
 
         let content = words.into_iter()
-            .map(|w| match (w, alert) {
+            .map(|w| match (w, self.in_range) {
                 (Phrase::System(s), _) => Cow::Owned(format!("{sys_color}{s}{CLR}")),
                 (phrase, _) => phrase.take(),
             })
@@ -295,5 +450,25 @@ impl<'a> Phrase<'a> {
 impl<'a> std::fmt::Display for Phrase<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_log_filename() {
+        const FILENAME: &'static str = "our.intel_20260212_035141_12345678.txt";
+        let expected = Some(ChatLogFile::new(PathBuf::from(FILENAME), |_| {
+            ChatLogFileParts {
+                channel: "our.intel",
+                character_id: 12345678,
+                datetime: Utc.with_ymd_and_hms(2026, 2, 12, 3, 51, 41).single().unwrap()
+            }
+        }));
+
+        let actual = ChatLogFile::from_path_buf(PathBuf::from(FILENAME));
+        assert_eq!(expected, actual);
     }
 }

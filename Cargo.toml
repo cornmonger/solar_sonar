@@ -16,6 +16,7 @@ encoding_rs_io = "0.1"
 encoding_rs = "0.8"
 heck = "0.5"
 itertools = "0.14.0"
+ouroboros = "0.18"
 ort-sys = { version = "=2.0.0-rc.9", default-features = false } # pinned for piper
 piper-rs = "0.1"
 pretty_assertions = "1.4"
