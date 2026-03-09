@@ -1,0 +1,17 @@
+# ~/.config/solar_sonar/client.toml
+# Network client configuration
+
+# The default profile to use, optional
+#default = "my_connect"
+
+# EXAMPLE
+# Copy, uncomment, and fill out for each character.
+#
+# Connection profile
+## TLS
+# Cert files are expected to exist within: ~/.config/solar_sonar/certs  
+# Cert filenames are expected to be the same as `connect.name`.  
+#[[connect]]
+#name = "my_connect"  # Profile name, snake_case
+#ip = "127.0.0.1"  # Remote address to connect to 
+#port = 3232  

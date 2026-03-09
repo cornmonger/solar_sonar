@@ -1,7 +1,0 @@
-# ~/.config/solar_sonar/settings.toml
-# Settings
-
-# Where EVE stores your chat log files.
-# Enable logging: EVE > Settings > Chat > Log Chat to File
-# Enable timestamps: Right-click on channel > Show Timestamp
-logs_dir = "$CARGO_MANIFEST_DIR/assets/tests/logs"

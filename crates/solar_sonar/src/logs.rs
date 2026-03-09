@@ -23,15 +23,58 @@ pub(crate) struct Log {
     sources: HashMap<CharacterID, LogSource>,
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash,
+    serde::Serialize, serde::Deserialize, bitcode::Encode, bitcode::Decode,
+)]
+pub struct Timestamp(pub i64, pub u32);
+
+impl PartialEq<DateTime<Utc>> for Timestamp {
+    fn eq(&self, other: &DateTime<Utc>) -> bool {
+        self.0 == other.timestamp() && self.1 == other.timestamp_subsec_nanos()
+    }
+}
+
+impl PartialOrd<DateTime<Utc>> for Timestamp {
+    fn partial_cmp(&self, other: &DateTime<Utc>) -> Option<std::cmp::Ordering> {
+        match (self.0.cmp(&other.timestamp()), self.1.cmp(&other.timestamp_subsec_nanos())) {
+            (std::cmp::Ordering::Equal, ord) => Some(ord),
+            (ord, std::cmp::Ordering::Equal) => Some(ord),
+            (ord, _) => Some(ord),
+        }
+    }
+}
+
+impl Timestamp {
+    pub fn to_datetime(&self) -> DateTime<Utc> {
+        Utc.timestamp_opt(self.0, self.1).single().expect("valid timestamp")
+    }
+}
+
+impl From<DateTime<Utc>> for Timestamp {
+    fn from(value: DateTime<Utc>) -> Self {
+        Timestamp(value.timestamp(), value.timestamp_subsec_nanos())
+    }
+}
+
+impl From<Timestamp> for DateTime<Utc> {
+    fn from(value: Timestamp) -> Self { value.to_datetime() }
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
+    bitcode::Encode, bitcode::Decode,
+)]
 pub struct LogEntry {
-    pub datetime: DateTime<Utc>,
+    pub timestamp: Timestamp,
     pub author: String,
     pub content: String,
     pub analysis: LogAnalysis,
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
+    bitcode::Encode, bitcode::Decode,
+)]
 pub struct LogAnalysis {
     pub has_unknown: bool,
     pub systems: Vec<SolarID>,
@@ -53,7 +96,10 @@ impl LogAnalysis {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Hash, serde::Serialize, serde::Deserialize,
+    bitcode::Encode, bitcode::Decode,
+)]
 pub enum LogKeyword {
     Clear,
     NoVisual,
@@ -99,10 +145,6 @@ impl ChannelLogs {
         self.0.get_mut(&channel_id)
     }
 
-    pub fn get(&self, channel_id: ChatChannelId) -> Option<&Log> {
-        self.0.get(&channel_id)
-    }
-
     pub(crate) fn push(&mut self, run: &Running, logfile: &ChatLogFile, read: LogRead) {
         let channel = run.chat_channels.find_name(logfile.channel()).expect("chan");
         if self.0.contains_key(&channel.id) {
@@ -137,6 +179,12 @@ impl ChannelLogs {
             self.0.insert(channel.id, log);
         }
     }
+    
+    pub(crate) fn take_entries(&mut self, channel_id: ChatChannelId) -> Vec<LogEntry> {
+        self.0.get_mut(&channel_id).map(|log| {
+            std::mem::take(&mut log.entries)
+        }).unwrap_or_default()
+    }
 }
 
 #[ouroboros::self_referencing]
@@ -151,7 +199,7 @@ pub(crate) struct ChatLogFile {
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ChatLogFileParts<'a> {
     pub(crate) channel: &'a str,
-    pub(crate) datetime: DateTime<Utc>,
+    pub(crate) timestamp: Timestamp,
     pub(crate) character_id: CharacterID,
 }
 
@@ -168,8 +216,8 @@ impl ChatLogFile {
         self.borrow_parts().character_id
     }
 
-    pub fn datetime(&self) -> &DateTime<Utc> {
-        &self.borrow_parts().datetime
+    pub fn timestamp(&self) -> &Timestamp {
+        &self.borrow_parts().timestamp
     }
 
     pub fn from_path_buf(path: PathBuf) -> Option<Self> {
@@ -200,10 +248,11 @@ impl ChatLogFile {
             let Some(datetime) = make_datetime(date, time) else {
                 return Err(())
             };
+            let timestamp = Timestamp::from(datetime);
 
             Ok(ChatLogFileParts {
                 channel,
-                datetime,
+                timestamp,
                 character_id,
             })
         })
@@ -223,7 +272,7 @@ fn make_datetime(date: &str, time: &str) -> Option<DateTime<Utc>> {
         .single()
 }
 
-pub(crate) fn read_intel_logs(run: &Running, mut logs: ChannelLogs) -> SolarResult<ChannelLogs> {
+pub(crate) fn read_intel_logs(run: &Running, logs: &mut ChannelLogs) -> SolarResult<()> {
     let chat_logs_dir = run.cfg.logs_dir.join("Chatlogs");
     let watch_chrs = run.args.watch_characters(&run.cfg);
 
@@ -261,7 +310,7 @@ pub(crate) fn read_intel_logs(run: &Running, mut logs: ChannelLogs) -> SolarResu
         .into_group_map_by(|log| (log.character.id, log.channel.id))
         .into_iter()
         .map(|(_k, mut v)| {
-            v.sort_by(|a, b| a.file.datetime().cmp(b.file.datetime()));
+            v.sort_by(|a, b| a.file.timestamp().cmp(b.file.timestamp()));
             v.pop().expect("value")
         })
         .collect::<Vec<_>>();
@@ -286,7 +335,7 @@ pub(crate) fn read_intel_logs(run: &Running, mut logs: ChannelLogs) -> SolarResu
         log.entries.extend(read.entries);
     }
 
-    Ok(logs)
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -350,9 +399,10 @@ pub(crate) fn read_intel_log_file(filepath: &Path, mut cursor: u64) -> SolarResu
             keywords,
         };
 
+        let timestamp = datetime.into();
 
         let entry = LogEntry {
-            datetime,
+            timestamp,
             author,
             content,
             analysis,
@@ -378,7 +428,7 @@ pub struct LogEntryAnsi<'a> {
 
 impl<'a> std::fmt::Display for LogEntryAnsi<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let stamp = self.entry.datetime.format("%m-%d %H:%M");
+        let stamp = self.entry.timestamp.to_datetime().format("%m-%d %H:%M");
         let author = format!("{:<37}", self.entry.author);
         let sys_names = self.entry.analysis.systems.iter()
             .map(|id| STAR_MAP.system(id).name)
@@ -461,10 +511,13 @@ mod tests {
     fn test_log_filename() {
         const FILENAME: &'static str = "our.intel_20260212_035141_12345678.txt";
         let expected = Some(ChatLogFile::new(PathBuf::from(FILENAME), |_| {
+            let timestamp = Utc.with_ymd_and_hms(2026, 2, 12, 3, 51, 41)
+                .single().unwrap()
+                .into();
             ChatLogFileParts {
                 channel: "our.intel",
                 character_id: 12345678,
-                datetime: Utc.with_ymd_and_hms(2026, 2, 12, 3, 51, 41).single().unwrap()
+                timestamp, 
             }
         }));
 

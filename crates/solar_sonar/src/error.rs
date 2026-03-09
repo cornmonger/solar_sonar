@@ -90,7 +90,13 @@ impl SolarError {
         Self::Path { source, path: path.into() }
     }
 
-    pub(crate) fn send<T>(_source: tokio::sync::mpsc::error::SendError<T>) -> Self {
+    pub(crate) fn broadcast<T>(_source: tokio::sync::broadcast::error::SendError<T>) -> Self {
         Self::Send {}
+    }
+}
+
+impl From<tokio::sync::broadcast::error::SendError<DataEvent>> for SolarError {
+    fn from(source: tokio::sync::broadcast::error::SendError<DataEvent>) -> Self {
+        Self::broadcast(source)
     }
 }

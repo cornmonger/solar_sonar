@@ -1,6 +1,6 @@
 [package]
 name = "solar_sonar"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "StarMap alerts for EVE Online"
 authors = ["cornmonger <cormonger@cornmonger.fish>"]
@@ -32,8 +32,14 @@ snafu.workspace = true
 tar.workspace = true
 tokio.workspace = true
 toml.workspace = true
-indexmap = "2.13.0"
-xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
+indexmap = "2"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+rcgen = "0.14"
+rustls-cert-gen = "0.2"
+tokio-rustls = "0.26"
+bitcode = { version = "0.6", features = ["serde"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+futures = "0.3"
 
 [dev-dependencies]
 pretty_assertions.workspace = true

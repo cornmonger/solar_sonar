@@ -73,9 +73,9 @@ pub(crate) enum AssetKind {
 }
 
 impl AssetDir {
-    pub(crate) fn dir(&self) -> SolarResult<PathBuf> {
+    pub(crate) fn dir(&self) -> SolarResult<Cow<'_, Path>> {
         match self {
-            Self::Data => data_dir(),
+            Self::Data => SolarSonar::get().data_dir(),
         }
     }
 }
@@ -127,9 +127,14 @@ impl RemoteAssets {
             default_url: "https://media.githubusercontent.com/media/cornmonger/solar_sonar_assets/refs/heads/dev/thirdparty/espeak/espeak_data.tar.bz2",
         }
     ];
+    
+    pub fn get(id: u8) -> SolarResult<&'static RemoteAsset> {
+        Self::REMOTE_ASSETS.get(id as usize)
+            .ok_or_else(|| SolarError::msg(format!("Invalid RemoteAsset id: {}", id)))
+    }
 
     #[inline]
-    pub const fn get(&self) -> &'static RemoteAsset {
+    pub const fn asset(&self) -> &'static RemoteAsset {
         &Self::REMOTE_ASSETS[self.id() as usize]
     }
 

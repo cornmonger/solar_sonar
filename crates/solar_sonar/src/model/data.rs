@@ -15,11 +15,17 @@ impl StarMap {
     pub fn system(&'static self, id: &SolarID) -> &'static SolarSystem {
         self.systems.iter().find(|sys| &sys.id == id).expect("system exists")
     }
+    
+    pub fn systems<'i, I: IntoIterator<Item = SolarID>>(&'static self, system_ids: I) -> Vec<&'static SolarSystem> {
+        system_ids.into_iter()
+            .map(|sys_id| self.system(&sys_id))
+            .collect::<Vec<_>>()
+    }
 
     pub fn get_system(&'static self, id: SolarID) -> Option<&'static SolarSystem> {
         self.systems.iter().find(|sys| sys.id == id)
     }
-
+    
     pub fn system_named(&'static self, name: &str) -> &'static SolarSystem {
         self.systems.iter().find(|sys| sys.name == name).expect("system exists")
     }
@@ -91,5 +97,71 @@ impl StarNavigator {
         }
 
         range
+    }
+}
+
+pub type ChatChannelId = u64;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChatChannelRef<'a> {
+    pub name: &'a str,
+    pub id: ChatChannelId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ChatChannel {
+    pub name: String,
+    pub id: ChatChannelId,
+}
+
+impl std::hash::Hash for ChatChannel {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl<'a> From<&'a ChatChannel> for ChatChannelRef<'a> {
+    fn from(v: &'a ChatChannel) -> Self {
+        Self {
+            name: v.name.as_str(),
+            id: v.id,
+        }
+    }
+}
+
+impl<'a> Display for ChatChannelRef<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ChatChannels(HashSet<ChatChannel>);
+impl ChatChannels {
+    pub fn new(channels: Vec<String>) -> Self {
+        let channels = channels.into_iter()
+            .map(|s| ChatChannel {
+                id: xxh3_64(s.as_bytes()),
+                name: s,
+            })
+            .collect::<HashSet<_>>();
+
+        Self(channels)
+    }
+
+    pub fn extend(&mut self, channels: ChatChannels) {
+        self.0.extend(channels.0);
+    }
+
+    pub fn find_id(&self, id: ChatChannelId) -> Option<ChatChannelRef<'_>> {
+        self.0.iter().find(|c| c.id == id).map(ChatChannelRef::from)
+    }
+
+    pub fn find_name(&self, name: &str) -> Option<ChatChannelRef<'_>> {
+        self.0.iter().find(|c| c.name == name).map(ChatChannelRef::from)
+    }
+
+    pub fn iter(&self) -> std::collections::hash_set::Iter<'_, ChatChannel> {
+        self.0.iter()
     }
 }

@@ -1,5 +1,17 @@
 # CHANGES: solar_sonar
 
+## 0.3.0
+- Networking support added:
+  - Configuration:
+    - Server: `~/.config/solar_sonar/server.toml`
+    - Client: `~/.config/solar_sonar/client.toml`
+  - TLS certificates generated to: `~/.config/solar_sonar/certs`
+  - Host a server with `--server <server profile>`
+  - Connect to a server with `--connect <connect profile>`
+  - Tips:
+    - LAN: Use your LAN ip
+    - Internet: Use the external IP
+    - Copy the `authority_<server profile>.pem` to your client's certs dir.
 ## 0.2.0
 - New command-line features:
   - Perform `--replay` of a specific log file

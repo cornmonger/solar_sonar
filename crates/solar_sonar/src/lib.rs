@@ -1,4 +1,6 @@
+pub(crate) mod args;
 pub(crate) mod assets;
+pub(crate) mod audio;
 pub(crate) mod error;
 pub(crate) mod cli;
 pub(crate) mod config;
@@ -7,17 +9,33 @@ pub(crate) mod generated {
     pub(crate) mod starmap;
 }
 pub(crate) mod logs;
-pub(crate) mod model;
+pub(crate) mod model {
+    pub(crate) mod event;
+    pub(crate) mod data;
+}
 pub(crate) mod paths;
-pub(crate) mod audio;
 pub(crate) mod run;
+pub(crate) mod sonar_io {
+    pub(crate) mod sonar;
+    pub(crate) mod stdio;
+    pub(crate) mod audio;
+}
 pub(crate) mod stdio;
+pub(crate) mod tls {
+    pub(crate) mod certificate;
+    pub(crate) mod client;
+    pub(crate) mod frame;
+    pub(crate) mod server;
+}
 
 pub use self::{
-    cli::{Args, ArgParam},
-    config::{Cfg, CfgParam, CharacterCfg, SettingsCfg},
+    args::{Args, ArgParam},
+    config::{Cfg, CfgParam, CharacterCfg, SettingsCfg, TlsCfg, ServerCfg, ClientCfg, ServeCfg, ConnectCfg},
     generated::starmap::STAR_MAP,
-    model::*,
+    model::{
+        data::*,
+        event::*,
+    },
     run::{run,start,SolarSonar},
 };
 
@@ -31,11 +49,22 @@ pub(crate) use self::{
     paths::*,
     audio::*,
     run::*,
+    sonar_io::{
+        audio::*,
+        sonar::*,
+        stdio::*,
+    },
     stdio::*,
+    tls::{
+        certificate::*,
+        client::*,
+        frame::*,
+        server::*,
+    },
 };
 
 pub(crate) use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     borrow::Cow,
     env,
     error::Error,
@@ -52,18 +81,77 @@ pub(crate) use std::{
         SeekFrom,
         Write,
     },
+    marker::PhantomData,
+    net::{self, IpAddr, Ipv4Addr},
     path::{Path, PathBuf},
     process::{Command, ExitCode},
-    sync::OnceLock,
+    sync::{Arc, OnceLock},
     time::{Duration},
 };
 
 pub(crate) use bzip2::read::BzDecoder;
 pub(crate) use clap::Parser;
 pub(crate) use chrono::{NaiveDateTime, DateTime, Utc};
-pub(crate) use itertools::Itertools;
-pub(crate) use heck::ToSnakeCase;
+pub(crate) use const_format::formatcp;
 pub(crate) use encoding_rs_io::DecodeReaderBytesBuilder;
 pub(crate) use encoding_rs::UTF_16LE;
-pub(crate) use const_format::formatcp;
+pub(crate) use futures::{StreamExt, SinkExt, future::join_all};
+pub(crate) use heck::ToSnakeCase;
+pub(crate) use itertools::Itertools;
 pub(crate) use xxhash_rust::xxh3::xxh3_64;
+
+/// re-exports
+pub(crate) mod r {
+    pub(crate) mod tls {
+        pub(crate) use tokio_rustls::{
+            TlsAcceptor,
+            TlsConnector,
+            client,
+            rustls::{
+                pki_types::{
+                    CertificateDer,
+                    PrivateKeyDer,
+                    ServerName,
+                },
+                RootCertStore,
+            },
+            server,
+        };
+    }
+    pub(crate) mod tokio {
+        pub(crate) use tokio::{
+            io::{ReadHalf, WriteHalf},
+            task::{
+                JoinHandle,
+            },
+            net::{
+                TcpListener,
+                TcpStream,
+            },
+            sync::{
+                broadcast,
+                mpsc,
+            },
+            time::timeout,
+        };
+        pub(crate) use tokio_util::{
+            bytes::BytesMut,
+            codec::{
+                Decoder,
+                Encoder,
+                LengthDelimitedCodec,
+                FramedRead,
+                FramedWrite
+            },
+            sync::CancellationToken,
+        };
+    }
+}
+
+pub(crate) use tokio_rustls::{
+    rustls::{
+        self, pki_types::pem::PemObject,
+    },
+};
+
+

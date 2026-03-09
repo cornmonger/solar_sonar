@@ -1,17 +1,22 @@
-use std::collections::HashSet;
-
 use crate::*;
 
-const CONFIG_DIR: &'static str = ".config/solar_sonar";
+pub(crate) const CONFIG_DIR: &'static str = ".config/solar_sonar";
+pub(crate) const CERTS_DIR: &'static str = "certs";
 const DEFAULT_CHARACTERS_TOML: &'static str = include_str!("../assets/config/default/characters.toml");
 const DEFAULT_SETTINGS_TOML: &'static str = include_str!("../assets/config/default/settings.toml");
+const DEFAULT_SERVER_TOML: &'static str = include_str!("../assets/config/default/server.toml");
+const DEFAULT_CLIENT_TOML: &'static str = include_str!("../assets/config/default/client.toml");
 
 // Fully processing configuration. Consumed internally. Available publically
 // primarily for inspection.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Config {
-    pub characters: Vec<CharacterConfig>,
     pub logs_dir: PathBuf,
+    pub characters: Vec<CharacterConfig>,
+    pub server_profiles: Vec<ServerProfileConfig>,
+    pub client_profiles: Vec<ClientProfileConfig>,
+    pub default_client_profile: Option<String>,
+    pub default_server_profile: Option<String>,
 }
 
 /// Public-facing configuration. Converted into [Config] at init.
@@ -20,6 +25,8 @@ pub struct Config {
 pub struct Cfg {
     pub characters: Vec<CharacterCfg>,
     pub settings: SettingsCfg,
+    pub server: ServerCfg,
+    pub client: ClientCfg,
 }
 
 /// The result of building a [Cfg].
@@ -31,7 +38,7 @@ pub struct CfgParam {
 
 impl Cfg {
     pub fn read() -> SolarResult<CfgParam> {
-        let config_dir = SolarSonar::get().dirs.home_dir().join(CONFIG_DIR);
+        let config_dir = SolarSonar::get().config_dir();
         if !config_dir.exists() {
             fs::create_dir_all(&config_dir)
                 .map_err(|e| SolarError::mkdir(e, &config_dir))?;
@@ -51,8 +58,11 @@ impl Cfg {
         let characters = CharactersCfg::read(&config_dir)?
             .character.into_iter()
             .collect::<Vec<_>>();
-
-        Cfg { characters, settings }.build()
+        
+        let server = ServerCfg::read(&config_dir)?;
+        let client = ClientCfg::read(&config_dir)?;
+        
+        Cfg { characters, settings, server, client }.build()
     }
 
     pub fn build(self) -> SolarResult<CfgParam> {
@@ -74,11 +84,27 @@ impl Cfg {
             Cow::Borrowed(p) => p.into(),
             Cow::Owned(p) => p,
         };
-
-        Ok(CfgParam {
-            config: Config { characters, logs_dir },
-            chat_channels
-        })
+        
+        let server_profiles = self.server.serve.into_iter()
+            .map(|cfg| ServerProfileConfig::try_from_cfg(cfg))
+            .collect::<SolarResult<Vec<_>>>()?;
+        let client_profiles = self.client.connect.into_iter()
+            .map(|cfg| ClientProfileConfig::try_from_cfg(cfg))
+            .collect::<SolarResult<Vec<_>>>()?;
+        
+        let default_server_profile = self.server.default;
+        let default_client_profile = self.client.default;
+        
+        let config = Config {
+            logs_dir,
+            characters,
+            server_profiles,
+            client_profiles,
+            default_server_profile,
+            default_client_profile,
+        };
+        
+        Ok(CfgParam { config, chat_channels })
     }
 }
 
@@ -165,6 +191,120 @@ impl SettingsCfg {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ServerCfg {
+    pub default: Option<String>,
+    pub serve: Vec<ServeCfg>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ServeCfg {
+    pub name: String,
+    #[serde(flatten)]
+    pub tls: TlsCfg,
+}
+
+pub(crate) trait CfgToml: serde::de::DeserializeOwned {
+    const TOML_FILENAME: &'static str;
+    const DEFAULT_TOML: &'static str;
+    
+    fn read(config_dir: &Path) -> SolarResult<Self> {
+        let filepath = config_dir.join(Self::TOML_FILENAME);
+        if !filepath.exists() {
+            setup_config_file(&filepath, Self::DEFAULT_TOML)?;
+        }
+
+        let toml_str = fs::read_to_string(&filepath)
+            .map_err(|e| SolarError::read(e, &filepath))?;
+
+        let toml: Self = toml::from_str(&toml_str)
+            .map_err(|e| SolarError::cfg(e, filepath))?;
+
+        Ok(toml)
+    }
+}
+
+impl CfgToml for ServerCfg {
+    const TOML_FILENAME: &'static str = "server.toml";
+    const DEFAULT_TOML: &'static str = DEFAULT_SERVER_TOML;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServerProfileConfig {
+    pub name: String,
+    pub tls: TlsConfig,
+}
+
+impl ServerProfileConfig {
+    fn try_from_cfg(cfg: ServeCfg) -> SolarResult<Self> {
+        let tls = TlsConfig::try_from_cfg(cfg.tls)?;
+        
+        Ok(Self {
+            name: cfg.name,
+            tls,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ClientCfg {
+    pub default: Option<String>,
+    // optional list of connections
+    #[serde(default)]
+    pub connect: Vec<ConnectCfg>,
+}
+
+impl CfgToml for ClientCfg {
+    const TOML_FILENAME: &'static str = "client.toml";
+    const DEFAULT_TOML: &'static str = DEFAULT_CLIENT_TOML;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ConnectCfg {
+    pub name: String,
+    #[serde(flatten)]
+    pub tls: TlsCfg,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientProfileConfig {
+    pub name: String,
+    pub tls: TlsConfig,
+}
+
+impl ClientProfileConfig {
+    fn try_from_cfg(cfg: ConnectCfg) -> SolarResult<Self> {
+        let tls = TlsConfig::try_from_cfg(cfg.tls)?;
+        
+        Ok(Self {
+            name: cfg.name,
+            tls,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct TlsCfg {
+    pub ip: String,
+    pub port: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TlsConfig {
+    pub ip: IpAddr,
+    pub port: u16,
+}
+
+impl TlsConfig {
+    pub fn try_from_cfg(cfg: TlsCfg) -> SolarResult<Self> {
+        let ip =  cfg.ip.parse()
+            .map_err(|_| SolarError::msg(format!("Invalid TLS server IP: {}", cfg.ip)))?;
+        let port = cfg.port;
+        
+        Ok(TlsConfig { ip, port })
+    }
+}
+
 fn setup_config_file(filepath: &Path, defaults: &str) -> SolarResult<()> {
     let logpath = log_path(&filepath);
     println!("{INFO} configuring {logpath}");
@@ -185,70 +325,3 @@ fn setup_config_file(filepath: &Path, defaults: &str) -> SolarResult<()> {
         SolarError::err_msg("{ERR} please configure {logpath}")
     }
 }
-
-pub type ChatChannelId = u64;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChatChannelRef<'a> {
-    pub name: &'a str,
-    pub id: ChatChannelId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ChatChannel {
-    pub name: String,
-    pub id: ChatChannelId,
-}
-
-impl std::hash::Hash for ChatChannel {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl<'a> From<&'a ChatChannel> for ChatChannelRef<'a> {
-    fn from(v: &'a ChatChannel) -> Self {
-        Self {
-            name: v.name.as_str(),
-            id: v.id,
-        }
-    }
-}
-
-impl<'a> Display for ChatChannelRef<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.name)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ChatChannels(HashSet<ChatChannel>);
-impl ChatChannels {
-    pub fn new(channels: Vec<String>) -> Self {
-        let channels = channels.into_iter()
-            .map(|s| ChatChannel {
-                id: xxh3_64(s.as_bytes()),
-                name: s,
-            })
-            .collect::<HashSet<_>>();
-
-        Self(channels)
-    }
-
-    pub fn extend(&mut self, channels: ChatChannels) {
-        self.0.extend(channels.0);
-    }
-
-    pub fn find_id(&self, id: ChatChannelId) -> Option<ChatChannelRef<'_>> {
-        self.0.iter().find(|c| c.id == id).map(ChatChannelRef::from)
-    }
-
-    pub fn find_name(&self, name: &str) -> Option<ChatChannelRef<'_>> {
-        self.0.iter().find(|c| c.name == name).map(ChatChannelRef::from)
-    }
-
-    pub fn iter(&self) -> std::collections::hash_set::Iter<'_, ChatChannel> {
-        self.0.iter()
-    }
-}
-

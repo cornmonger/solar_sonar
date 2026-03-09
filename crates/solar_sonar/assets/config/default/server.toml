@@ -1,0 +1,22 @@
+# ~/.config/solar_sonar/serve.toml
+# Network server configuration
+
+# The default profile to serve, optional
+default = "default"
+
+# EXAMPLE
+# Copy, uncomment, and fill out for each character.
+#
+# Server profile
+## TLS
+# Cert files are auto-generated to: ~/.config/solar_sonar/certs  
+# Cert filenames are named the same as `connect.name`.  
+#[[serve]]
+#name = "my_server"  # Profile name, snake_case
+#ip = "127.0.0.1"  # Address to accept connections on
+#port = 3232  
+
+[[serve]]
+name = "default"
+ip = "127.0.0.1"
+port = 3232
