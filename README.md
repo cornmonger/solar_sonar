@@ -42,11 +42,18 @@ Within EVE:
 `~/.config/solar_sonar`
 - `characters.toml` Characters and their channels
 - `settings.toml` Game path and various options
+- `server.toml` Server profiles for IP, port, etc.
+- `client.toml` Client profiles for IP, port, etc.
+- `certs/` TLS certificates
 
 The first run of *solar_sonar* will install configuration files and
 let you edit them (if `$EDITOR` is set in your environment). It will also
-download the voice model assets (80mb) for text-to-speech.
+download the voice model assets (90mb) for text-to-speech.
 
+TLS certificates will be auto-generated the first time `--serve` is used. The
+server's public key file `~/.config/solar_sonar/certs/authority_<server profile>.pem`
+will need to be manually copied to the client's `~/.config/solar_sonar/certs`
+directory. The profile names must match, for now.
 
 ### Command Line Interface
 
@@ -102,7 +109,7 @@ If not, see https://www.gnu.org/licenses/.
 [Crate Badge]: https://img.shields.io/crates/v/solar_sonar.svg
 [Docs]: https://docs.rs/solar_sonar
 [Docs Badge]: https://img.shields.io/badge/docs-blue
-[Changes]: ./docs/CHANGES.md
+[Changes]: ../../docs/CHANGES.md
 [Changes Badge]: https://img.shields.io/badge/changes-blue
 [License]: #License-AGPL3
 [License Badge]: https://img.shields.io/badge/license-AGPL3-blue.svg

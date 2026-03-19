@@ -6,7 +6,7 @@
     - Server: `~/.config/solar_sonar/server.toml`
     - Client: `~/.config/solar_sonar/client.toml`
   - TLS certificates generated to: `~/.config/solar_sonar/certs`
-  - Host a server with `--server <server profile>`
+  - Host a server with `--serve <server profile>`
   - Connect to a server with `--connect <connect profile>`
   - Tips:
     - LAN: Use your LAN ip
