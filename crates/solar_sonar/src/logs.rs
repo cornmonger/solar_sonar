@@ -65,6 +65,7 @@ impl From<Timestamp> for DateTime<Utc> {
     bitcode::Encode, bitcode::Decode,
 )]
 pub struct LogEntry {
+    pub channel_id: ChatChannelId,
     pub timestamp: Timestamp,
     pub author: String,
     pub content: String,
@@ -330,7 +331,7 @@ pub(crate) fn read_intel_logs(run: &Running, logs: &mut ChannelLogs) -> SolarRes
             source
         };
 
-        let read = read_intel_log_file(chatlog.file.path(), log_source.cursor)?;
+        let read = read_intel_log_file(chatlog.channel.id, chatlog.file.path(), log_source.cursor)?;
         log_source.cursor = read.cursor;
         log.entries.extend(read.entries);
     }
@@ -344,7 +345,7 @@ pub(crate) struct LogRead {
     pub(crate) entries: Vec<LogEntry>,
 }
 
-pub(crate) fn read_intel_log_file(filepath: &Path, mut cursor: u64) -> SolarResult<LogRead> {
+pub(crate) fn read_intel_log_file(channel_id: ChatChannelId, filepath: &Path, mut cursor: u64) -> SolarResult<LogRead> {
     let mut entries: Vec<LogEntry> = vec![];
 
     let mut file = File::open(&filepath)
@@ -402,6 +403,7 @@ pub(crate) fn read_intel_log_file(filepath: &Path, mut cursor: u64) -> SolarResu
         let timestamp = datetime.into();
 
         let entry = LogEntry {
+            channel_id,
             timestamp,
             author,
             content,

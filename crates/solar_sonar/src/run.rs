@@ -265,9 +265,9 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
             SourceKind::Replay => {
                 let run = &run;
                 let watch_channels = &watch_channels;
-                let replay_log = &replay_log;
+                let replay_log = replay_log.as_ref().expect("exists");
                 let logs = &mut logs;
-                Box::pin(async move { select_replay(&run, &watch_channels, stamp, logs, &replay_log).await })
+                Box::pin(async move { select_replay(&run, &watch_channels, stamp, logs, &replay_log, 1).await })
             },
             SourceKind::Client => {
                 let tls_client = &mut tls_client;
@@ -349,9 +349,8 @@ async fn select_logs(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, st
     Ok(activity)
 }
 
-async fn select_replay(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, stamp: Timestamp, logs: &mut ChannelLogs, replay_log: &Option<ChatLogFile>) -> SolarResult<Vec<LogEntry>> {
-    let log_file = replay_log.as_ref().expect("exists");
-    let read = read_intel_log_file(&log_file.path(), 0)?;
+async fn select_replay(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, stamp: Timestamp, logs: &mut ChannelLogs, log_file: &ChatLogFile, channel_id: ChatChannelId) -> SolarResult<Vec<LogEntry>> {
+    let read = read_intel_log_file(channel_id, &log_file.path(), 0)?;
     logs.push(&run, &log_file, read);
     
     let activity = watch_channels.iter()
