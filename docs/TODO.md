@@ -25,7 +25,7 @@ as the data-source for others.
 - In-app configuration is kept simple:
   - Organization of views
   - Mute or disable things already configured by the instance
-- Distrubuted on as either a manual `.apk` install or via F-Droid 
+- Distrubuted as either a manual `.apk` install or via F-Droid 
 
 
 ## 2D map (solar_sonar_map)
