@@ -1,5 +1,15 @@
 # CHANGES: solar_sonar
 
+## 0.4.0 (draft)
+- Support for different kinds of chat logs:
+  - Alliance, Corp, Fleet, Local, and Group
+- Support for Game logs
+  - Combat parsing
+  - Location parsing based on jump notifications
+- Identifies chat messages directed at your character's name
+- Identifies danger call-outs in chat such as "neut"
+- Custom modes:
+  - Audible pings behave differently based on: Mode, Log, and Character.
 ## 0.3.0
 - Networking support added:
   - Configuration:
