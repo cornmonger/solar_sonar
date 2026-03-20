@@ -102,30 +102,57 @@ impl StarNavigator {
 
 pub type ChatChannelId = u64;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash,
+    serde::Serialize, serde::Deserialize,
+    bitcode::Encode, bitcode::Decode,
+)]
 #[repr(u8)]
 pub enum LogKind {
     System,
-    Local,
-    Chat,
-    Corp,
+    Chat(ChatLogKind),
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash,
+    serde::Serialize, serde::Deserialize,
+    bitcode::Encode, bitcode::Decode,
+)]
+#[repr(u8)]
+pub enum ChatLogKind {
     Alliance,
+    Corporation,
+    Group,
+    Local,
     Fleet,
     Private,
+}
+
+impl ChatLogKind {
+    pub fn from_name(name: &str) -> Self {
+        match name {
+            "Alliance" => Self::Alliance,
+            "Corp" => Self::Corporation,
+            "Local" => Self::Local,
+            "Fleet" => Self::Fleet,
+            "Private" => Self::Private,
+            _ => Self::Group,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChatChannelRef<'a> {
     pub name: &'a str,
     pub id: ChatChannelId,
-    pub kind: LogKind,
+    pub kind: ChatLogKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ChatChannel {
     pub name: String,
     pub id: ChatChannelId,
-    pub kind: LogKind,
+    pub kind: ChatLogKind,
 }
 
 impl std::hash::Hash for ChatChannel {
@@ -156,7 +183,7 @@ impl ChatChannels {
     pub fn new(channels: Vec<String>) -> Self {
         let channels = channels.into_iter()
             .map(|s| ChatChannel {
-                kind: LogKind::Chat,
+                kind: ChatLogKind::from_name(&s),
                 id: xxh3_64(s.as_bytes()),
                 name: s,
             })

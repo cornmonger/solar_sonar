@@ -69,6 +69,7 @@ pub struct LogEntry {
     pub timestamp: Timestamp,
     pub author: ChatAuthor,
     pub content: String,
+    pub kind: LogKind,
     pub analysis: LogAnalysis,
 }
 
@@ -446,12 +447,14 @@ pub(crate) fn read_intel_log_file(channel_id: ChatChannelId, filepath: &Path, mu
 
         let timestamp = datetime.into();
         let author = ChatAuthor::Character(author);
+        let kind = LogKind::Chat(ChatLogKind::Group);
 
         let entry = LogEntry {
             channel_id,
             timestamp,
             author,
             content,
+            kind,
             analysis,
         };
 
