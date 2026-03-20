@@ -59,7 +59,7 @@ directory. The profile names must match, for now.
 
 Refer to `solar_sonar --help`.
 
-Example: *Watch system **UALX-3** for character aliased **corn** within **two** jumps*:  
+Example: *Watch system **UALX-3** for character aliased **corn** within **two** (default) jumps*:  
 ```bash
 solar_sonar corn UALX-3
 ```
@@ -77,8 +77,8 @@ report it if you don't find anything
 
 Feedback is welcome.
 
-Contributions are usually welcome. Ask first in a **issue** before making a
-pull request and we'll discuss it.
+Contributions are usually welcome. Please ask first in an issue or discussion
+beforehand.
 
 
 ## License (AGPL3)
