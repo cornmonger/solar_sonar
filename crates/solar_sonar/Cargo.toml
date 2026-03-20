@@ -1,6 +1,6 @@
 [package]
 name = "solar_sonar"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "StarMap alerts for EVE Online"
 authors = ["cornmonger <cormonger@cornmonger.fish>"]

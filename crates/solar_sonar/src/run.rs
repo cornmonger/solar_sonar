@@ -251,7 +251,6 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
     let signal_ctl_c = tokio::signal::ctrl_c();
     tokio::pin!(signal_ctl_c);
     
-    
     loop {
         let stamp = last_stamp;
         
@@ -271,8 +270,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
             },
             SourceKind::Client => {
                 let tls_client = &mut tls_client;
-                let logs = &mut logs;
-                Box::pin(async move { select_client(stamp, logs, tls_client).await })
+                Box::pin(async move { select_client(stamp, tls_client).await })
             },
         };
         
@@ -291,12 +289,12 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
         
         for entry in activity {
             last_stamp = entry.timestamp;
-            let matched_systems = entry.analysis.systems.iter()
+            let matched_systems = entry.analysis.system_ids().iter()
                 .filter_map(|sys_id| watch_range.iter().find(|sys| &sys.id == sys_id))
                 .collect::<Vec<_>>();
 
             let in_range = !matched_systems.is_empty();
-            let in_danger = entry.analysis.danger();
+            let in_danger = entry.analysis.in_danger();
             
             io.broadcast(DataEvent::LogEntry { entry: entry.clone(), in_range, in_danger })?;
 
@@ -316,7 +314,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
         }
         
         sleep_time = match stamp == last_stamp {
-            true => Duration::from_secs(2),
+            true => Duration::from_secs(2), // rest if nothing changed
             false => Duration::from_secs(0),
         };
     }
@@ -343,7 +341,7 @@ async fn select_logs(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, st
     let activity = watch_channels.iter()
         .flat_map(|channel| logs.take_entries(channel.id))
         .filter(|entry| entry.timestamp > stamp)
-        .filter(|entry| !entry.analysis.systems.is_empty())
+        .filter(|entry| !entry.analysis.system_ids().is_empty())
         .collect::<Vec<_>>();
     
     Ok(activity)
@@ -356,14 +354,14 @@ async fn select_replay(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, 
     let activity = watch_channels.iter()
         .flat_map(|channel| logs.take_entries(channel.id))
         .filter(|entry| entry.timestamp > stamp)
-        .filter(|entry| !entry.analysis.systems.is_empty())
+        .filter(|entry| !entry.analysis.system_ids().is_empty())
         .collect::<Vec<_>>();
     
     Ok(activity)
 }
 
-async fn select_client(stamp: Timestamp, _logs: &mut ChannelLogs, tls_client: &mut Option<TlsClientHandle>) -> SolarResult<Vec<LogEntry>> {
-    let client = tls_client.as_mut().expect("exists"); //todo: bad, maybe not tls
+async fn select_client(stamp: Timestamp, tls_client: &mut Option<TlsClientHandle>) -> SolarResult<Vec<LogEntry>> {
+    let client = tls_client.as_mut().expect("exists");
     let events = match client.recv().await {
         Some(events) => events,
         _ => return SolarError::err_msg("Client closed"),
@@ -375,7 +373,7 @@ async fn select_client(stamp: Timestamp, _logs: &mut ChannelLogs, tls_client: &m
             _ => None,
         })
         .filter(|entry| entry.timestamp > stamp)
-        .filter(|entry| !entry.analysis.systems.is_empty())
+        .filter(|entry| !entry.analysis.system_ids().is_empty())
         .collect::<Vec<_>>();
     
     Ok(activity)

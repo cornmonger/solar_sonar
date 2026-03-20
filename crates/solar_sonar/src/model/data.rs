@@ -102,16 +102,30 @@ impl StarNavigator {
 
 pub type ChatChannelId = u64;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[repr(u8)]
+pub enum LogKind {
+    System,
+    Local,
+    Chat,
+    Corp,
+    Alliance,
+    Fleet,
+    Private,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChatChannelRef<'a> {
     pub name: &'a str,
     pub id: ChatChannelId,
+    pub kind: LogKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ChatChannel {
     pub name: String,
     pub id: ChatChannelId,
+    pub kind: LogKind,
 }
 
 impl std::hash::Hash for ChatChannel {
@@ -125,6 +139,7 @@ impl<'a> From<&'a ChatChannel> for ChatChannelRef<'a> {
         Self {
             name: v.name.as_str(),
             id: v.id,
+            kind: v.kind,
         }
     }
 }
@@ -141,6 +156,7 @@ impl ChatChannels {
     pub fn new(channels: Vec<String>) -> Self {
         let channels = channels.into_iter()
             .map(|s| ChatChannel {
+                kind: LogKind::Chat,
                 id: xxh3_64(s.as_bytes()),
                 name: s,
             })

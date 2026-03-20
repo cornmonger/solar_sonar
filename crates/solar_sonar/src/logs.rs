@@ -67,7 +67,7 @@ impl From<Timestamp> for DateTime<Utc> {
 pub struct LogEntry {
     pub channel_id: ChatChannelId,
     pub timestamp: Timestamp,
-    pub author: String,
+    pub author: ChatAuthor,
     pub content: String,
     pub analysis: LogAnalysis,
 }
@@ -76,22 +76,66 @@ pub struct LogEntry {
     Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
     bitcode::Encode, bitcode::Decode,
 )]
-pub struct LogAnalysis {
-    pub has_unknown: bool,
+pub enum ChatAuthor {
+    System,
+    Character(String),
+}
+
+impl ChatAuthor {
+    const SYSTEM: &'static str = "System";
+    
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::System => Self::SYSTEM,
+            Self::Character(name) => name.as_str(),
+        }
+    }
+}
+
+impl AsRef<str> for ChatAuthor { fn as_ref(&self) -> &str { self.as_str() } }
+
+#[derive(
+    Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
+    bitcode::Encode, bitcode::Decode,
+)]
+pub enum LogAnalysis {
+    Intel(IntelLogAnalysis),
+}
+
+impl LogAnalysis {
+    pub fn system_ids(&self) -> &Vec<SolarID> {
+        match self {
+            Self::Intel(info) => &info.systems,
+        }
+    }
+    
+    pub fn in_danger(&self) -> bool {
+        match self {
+            Self::Intel(info) => info.in_danger(),
+        }
+    }
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
+    bitcode::Encode, bitcode::Decode,
+)]
+pub struct IntelLogAnalysis {
+    pub ambiguous: bool,
     pub systems: Vec<SolarID>,
     pub keywords: Vec<LogKeyword>,
 }
 
-impl LogAnalysis {
-    pub fn danger(&self) -> bool {
+impl IntelLogAnalysis {
+    pub fn in_danger(&self) -> bool {
         if self.systems.is_empty() {
             return false;
         }
 
         self.keywords.iter()
             .fold(None, |danger, word| match danger {
-                None => Some(word.danger(self.has_unknown)),
-                Some(last) => Some(last || word.danger(self.has_unknown)),
+                None => Some(word.danger(self.ambiguous)),
+                Some(last) => Some(last || word.danger(self.ambiguous)),
             })
             .unwrap_or_else(|| true)
     }
@@ -394,13 +438,14 @@ pub(crate) fn read_intel_log_file(channel_id: ChatChannelId, filepath: &Path, mu
             }
         }
 
-        let analysis = LogAnalysis {
-            has_unknown: num_words > (systems.len() + keywords.len()),
+        let analysis = LogAnalysis::Intel(IntelLogAnalysis {
+            ambiguous: num_words > (systems.len() + keywords.len()),
             systems,
             keywords,
-        };
+        });
 
         let timestamp = datetime.into();
+        let author = ChatAuthor::Character(author);
 
         let entry = LogEntry {
             channel_id,
@@ -418,29 +463,63 @@ pub(crate) fn read_intel_log_file(channel_id: ChatChannelId, filepath: &Path, mu
 
 impl LogEntry {
     pub fn display_ansi(&self, in_range: bool, danger: bool) -> LogEntryAnsi<'_> {
-        LogEntryAnsi { entry: self, in_range, danger }
+        LogEntryAnsi { entry: self, in_range, in_danger: danger }
     }
 }
 
 pub struct LogEntryAnsi<'a> {
-    entry: &'a LogEntry,
-    in_range: bool,
-    danger: bool
+    pub(crate) entry: &'a LogEntry,
+    pub(crate) in_range: bool,
+    pub(crate) in_danger: bool
 }
+
+pub struct LogEntryAnsiTheme<'a> {
+    pub stamp_fg: Cow<'a, str>,
+    pub author_fg: Cow<'a, str>,
+    pub system_fg: Cow<'a, str>,
+    pub content_fg: Cow<'a, str>,
+}
+
+impl<'a> LogEntryAnsiTheme<'a> {
+    const IN_RANGE_AND_DANGER: Self = Self {
+        stamp_fg: Cow::Borrowed(WHITE_ON_RED),
+        author_fg: Cow::Borrowed(RED),
+        system_fg: Cow::Borrowed(YELLOW),
+        content_fg: Cow::Borrowed(RED),
+    };
+    const IN_RANGE_NO_DANGER: Self = Self {
+        stamp_fg: Cow::Borrowed(WHITE_ON_ORANGE),
+        author_fg: Cow::Borrowed(ORANGE),
+        system_fg: Cow::Borrowed(YELLOW),
+        content_fg: Cow::Borrowed(ORANGE),
+    };
+    const DEFAULT: Self = Self {
+        stamp_fg: Cow::Borrowed(WHITE),
+        author_fg: Cow::Borrowed(GRAY),
+        system_fg: Cow::Borrowed(BRIGHT_BLUE),
+        content_fg: Cow::Borrowed(WHITE),
+    };
+
+    pub fn from_entry<'b, 'c>(ansi: &'b LogEntryAnsi) -> &'c Self {
+        match (ansi.in_range, ansi.in_danger) {
+            (true, true) => &Self::IN_RANGE_AND_DANGER,
+            (true, false) => &Self::IN_RANGE_NO_DANGER,
+            (false, _) => &Self::DEFAULT,
+        }
+    }
+}
+
 
 impl<'a> std::fmt::Display for LogEntryAnsi<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let LogEntryAnsiTheme { stamp_fg, author_fg, system_fg, content_fg }
+            = LogEntryAnsiTheme::from_entry(self);
+        
         let stamp = self.entry.timestamp.to_datetime().format("%m-%d %H:%M");
-        let author = format!("{:<37}", self.entry.author);
-        let sys_names = self.entry.analysis.systems.iter()
+        let author = format!("{:<37}", self.entry.author.as_str());
+        let sys_names = self.entry.analysis.system_ids().iter()
             .map(|id| STAR_MAP.system(id).name)
             .collect::<Vec<_>>();
-
-        let (stamp_color, author_color, sys_color, text_color) = match (self.in_range, self.danger) {
-            (true, true) => (WHITE_ON_RED, RED, YELLOW, RED),
-            (true, false) => (WHITE_ON_ORANGE, ORANGE, YELLOW, ORANGE),
-            (false, _) => (WHITE, GRAY, BRIGHT_BLUE, WHITE),
-        };
 
         let mut words = self.entry.content.split_whitespace()
             .map(|w| {
@@ -454,22 +533,22 @@ impl<'a> std::fmt::Display for LogEntryAnsi<'a> {
             .collect::<Vec<_>>();
 
         // place system in the beginning, as god intended
-        let sys_word = if self.entry.analysis.systems.len() == 1 {
+        let sys_word = if self.entry.analysis.system_ids().len() == 1 {
             words.iter()
                 .position(|w| w.is_system())
-                .and_then(|pos| Some(format!("{sys_color}{} {CLR}", words.remove(pos))))
+                .and_then(|pos| Some(format!("{system_fg}{} {CLR}", words.remove(pos))))
         } else {
             None
         }.unwrap_or_default();
 
         let content = words.into_iter()
             .map(|w| match (w, self.in_range) {
-                (Phrase::System(s), _) => Cow::Owned(format!("{sys_color}{s}{CLR}")),
+                (Phrase::System(s), _) => Cow::Owned(format!("{system_fg}{s}{CLR}")),
                 (phrase, _) => phrase.take(),
             })
             .join(" ");
 
-        let out = format!("{stamp_color}{stamp}{CLR} {author_color}{author}{CLR} {sys_word}{text_color}{content}{CLR}");
+        let out = format!("{stamp_fg}{stamp}{CLR} {author_fg}{author}{CLR} {sys_word}{content_fg}{content}{CLR}");
         f.write_str(&out)
     }
 }
