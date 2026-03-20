@@ -6,5 +6,5 @@
 # 
 #[[character]]
 #alias = "my_char"  # unique. snake_case.
+#name = "My Character Name"
 #id = 12345  # esi id
-#intel_channels = ["our.intel"]  # comma-seperated. eg, ["chan1", "chan2"]

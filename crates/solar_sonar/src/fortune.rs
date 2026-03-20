@@ -8,7 +8,7 @@ const FORTUNE: &'static [&'static str] = &[
     "Locked, stocked, and ready to interrupt your Netflix.",
     "We don't need showers where we are going.",
     "Rip and taer until it is done.",
-    "En tauro adoon, Executor",
+    "We require more Vespene gas.",
 ];
 
 pub(crate) fn fortune() -> &'static str {

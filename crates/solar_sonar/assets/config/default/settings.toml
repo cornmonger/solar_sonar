@@ -9,3 +9,6 @@
 # Linux (Steam, Debian): "~/.steam/debian-installation/steamapps/compatdata/8500/pfx/drive_c/users/steamuser/Documents/EVE/logs"
 # MacOS (Standalone): "~/Documents/EVE/logs"
 logs_dir = "~/Documents/EVE/logs"
+
+# Define mode names for use in other settings
+modes = ["stand", "crab", "attack"]

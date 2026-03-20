@@ -1,0 +1,62 @@
+# ~/.config/solar_sonar/channels.toml
+# Log file configuration 
+
+## Modes
+# If unspecified, will apply to ALL modes.
+# 
+## Kind
+# - alliance (chat::alliance)
+# - group (chat::group)
+# - corp (chat::corporation)
+# - fleet (chat::fleet)
+# - game 
+# - local (chat::local)
+# 
+## Pings
+# Employs parsers AND audible pings for them.  
+# Certain parsers run regardless, depending on log kind. 
+### combat
+# - game: Combat events directed at or by your character.
+### danger
+# - game: Any combat is initiated on grid
+# - chat: Call-outs such as "neut", "enemy" or "nme", "danger" or "dgr", etc.
+### intel
+#  Identifies the system as well as well-known keywords. Audible if within
+#  the range specified at runtime. Keywords such as "status" or "clr"
+#  flag the content as non-dangerous.
+# 
+#  - chat: entries in the form of:
+#    - SYSTEM <content>
+#    - SYSTEM <keyword>
+#    - SYSTEM <keyword> <content>
+#    - identifies when a single SYSTEM is placed somewhere else in the text
+#    - identifies multiple SYSTEM referenced in text
+### message:
+#   - chat: text prefixed with your character's name
+## Name
+# For group chat channels only: The name of the channel.
+
+[[log]]
+kind = "group"
+name = "our.intel"
+modes = ["stand", "crab"]
+characters = ["me"]
+pings = ["intel"]
+
+[[log]]
+kind = "fleet"
+modes = ["crab"]
+characters = ["me"]
+pings = ["danger", "message"]
+
+[[log]]
+kind = "fleet"
+modes = ["stand"]
+characters = ["me"]
+pings = ["combat", "message"]
+
+[[log]]
+kind = "system"
+modes = ["crab"]
+characters = ["me"]
+pings = ["danger"]
