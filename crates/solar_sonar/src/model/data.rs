@@ -122,9 +122,9 @@ pub enum LogKind {
 pub enum ChatLogKind {
     Alliance,
     Corporation,
+    Fleet,
     Group,
     Local,
-    Fleet,
     Private,
 }
 

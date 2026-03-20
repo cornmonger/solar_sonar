@@ -2,10 +2,13 @@ use rand::RngExt;
 
 
 const FORTUNE: &'static [&'static str] = &[
+    "Reactor ... Online. Sensors ... Online. Weapons ... Online. All systems ... nominal.",
     "I talk in intel when you're not watching.",
     "All their ice are belong to us.",
     "Locked, stocked, and ready to interrupt your Netflix.",
     "We don't need showers where we are going.",
+    "Rip and taer until it is done.",
+    "En tauro adoon, Executor",
 ];
 
 pub(crate) fn fortune() -> &'static str {

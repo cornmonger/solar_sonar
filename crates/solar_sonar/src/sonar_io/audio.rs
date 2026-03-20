@@ -13,6 +13,8 @@ impl SonarAudio {
                 panic!("Failed to initialize audio");
             };
             
+            std::thread::sleep(Duration::from_secs(1)); // give rodio time to catch up 
+            
             while let Some(play) = play_rx.blocking_recv() {
                 let result = match play {
                     DataEvent::PingFortune => on_ping_fortune(&audible),
