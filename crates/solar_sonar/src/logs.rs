@@ -18,9 +18,9 @@ pub(crate) struct LogSource {
 
 #[derive(Debug)]
 pub(crate) struct Log {
-    pub channel_id: ChatChannelId,
+    pub channel_id: ChannelId,
     pub entries: Vec<LogEntry>,
-    sources: HashMap<CharacterID, LogSource>,
+    sources: HashMap<CharacterId, LogSource>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash,
@@ -65,11 +65,11 @@ impl From<Timestamp> for DateTime<Utc> {
     bitcode::Encode, bitcode::Decode,
 )]
 pub struct LogEntry {
-    pub channel_id: ChatChannelId,
+    pub kind: LogKind,
+    pub channel_id: ChannelId,
     pub timestamp: Timestamp,
     pub author: ChatAuthor,
     pub content: String,
-    pub kind: LogKind,
     pub analysis: LogAnalysis,
 }
 
@@ -104,7 +104,7 @@ pub enum LogAnalysis {
 }
 
 impl LogAnalysis {
-    pub fn system_ids(&self) -> &Vec<SolarID> {
+    pub fn system_ids(&self) -> &Vec<SolarId> {
         match self {
             Self::Intel(info) => &info.systems,
         }
@@ -123,7 +123,7 @@ impl LogAnalysis {
 )]
 pub struct IntelLogAnalysis {
     pub ambiguous: bool,
-    pub systems: Vec<SolarID>,
+    pub systems: Vec<SolarId>,
     pub keywords: Vec<LogKeyword>,
 }
 
@@ -173,9 +173,9 @@ impl LogKeyword {
     }
 }
 
-pub(crate) struct ChannelLogs(HashMap<ChatChannelId, Log>);
+pub(crate) struct Logs(HashMap<ChannelId, Log>);
 
-impl ChannelLogs {
+impl Logs {
     pub fn new_watch(run: &Running) -> Self {
         let watch_chrs = run.args.watch_characters(&run.cfg);
         let logs = watch_chrs.iter()
@@ -187,7 +187,7 @@ impl ChannelLogs {
         Self(logs)
     }
 
-    pub fn get_mut(&mut self, channel_id: ChatChannelId) -> Option<&mut Log> {
+    pub fn get_mut(&mut self, channel_id: ChannelId) -> Option<&mut Log> {
         self.0.get_mut(&channel_id)
     }
 
@@ -226,7 +226,7 @@ impl ChannelLogs {
         }
     }
     
-    pub(crate) fn take_entries(&mut self, channel_id: ChatChannelId) -> Vec<LogEntry> {
+    pub(crate) fn take_entries(&mut self, channel_id: ChannelId) -> Vec<LogEntry> {
         self.0.get_mut(&channel_id).map(|log| {
             std::mem::take(&mut log.entries)
         }).unwrap_or_default()
@@ -246,7 +246,7 @@ pub(crate) struct ChatLogFile {
 pub(crate) struct ChatLogFileParts<'a> {
     pub(crate) channel: &'a str,
     pub(crate) timestamp: Timestamp,
-    pub(crate) character_id: CharacterID,
+    pub(crate) character_id: CharacterId,
 }
 
 impl ChatLogFile {
@@ -258,7 +258,7 @@ impl ChatLogFile {
         self.borrow_parts().channel
     }
 
-    pub fn character_id(&self) -> CharacterID {
+    pub fn character_id(&self) -> CharacterId {
         self.borrow_parts().character_id
     }
 
@@ -288,7 +288,7 @@ impl ChatLogFile {
             let Some((channel, date)) = file.rsplit_once(UNDERSCORE) else {
                 return Err(())
             };
-            let Ok(character_id) = CharacterID::from_str(character_id) else {
+            let Ok(character_id) = CharacterId::from_str(character_id) else {
                 return Err(())
             };
             let Some(datetime) = make_datetime(date, time) else {
@@ -318,7 +318,7 @@ fn make_datetime(date: &str, time: &str) -> Option<DateTime<Utc>> {
         .single()
 }
 
-pub(crate) fn read_intel_logs(run: &Running, logs: &mut ChannelLogs) -> SolarResult<()> {
+pub(crate) fn read_intel_logs(run: &Running, logs: &mut Logs) -> SolarResult<()> {
     let chat_logs_dir = run.cfg.logs_dir.join("Chatlogs");
     let watch_chrs = run.args.watch_characters(&run.cfg);
 
@@ -390,7 +390,7 @@ pub(crate) struct LogRead {
     pub(crate) entries: Vec<LogEntry>,
 }
 
-pub(crate) fn read_intel_log_file(channel_id: ChatChannelId, filepath: &Path, mut cursor: u64) -> SolarResult<LogRead> {
+pub(crate) fn read_intel_log_file(channel_id: ChannelId, filepath: &Path, mut cursor: u64) -> SolarResult<LogRead> {
     let mut entries: Vec<LogEntry> = vec![];
 
     let mut file = File::open(&filepath)

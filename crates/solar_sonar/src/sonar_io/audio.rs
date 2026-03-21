@@ -54,7 +54,7 @@ fn on_ping_fortune(audible: &Audible) -> SolarResult<()> {
     audible.play_ping(vec![fortune()])
 }
 
-fn on_ping_systems(audible: &Audible, system_ids: Vec<SolarID>) -> SolarResult<()> {
+fn on_ping_systems(audible: &Audible, system_ids: Vec<SolarId>) -> SolarResult<()> {
     let names = STAR_MAP.systems(system_ids)
         .into_iter()
         .map(|sys| sys.name)

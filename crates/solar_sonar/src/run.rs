@@ -246,7 +246,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
 
     io.broadcast(DataEvent::PingFortune)?;
 
-    let mut logs = ChannelLogs::new_watch(&run);
+    let mut logs = Logs::new_watch(&run);
     let mut sleep_time = Duration::from_secs(0);
     let signal_ctl_c = tokio::signal::ctrl_c();
     tokio::pin!(signal_ctl_c);
@@ -335,7 +335,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
     Ok(())
 }
 
-async fn select_logs(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, stamp: Timestamp, logs: &mut ChannelLogs) -> SolarResult<Vec<LogEntry>> {
+async fn select_logs(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, stamp: Timestamp, logs: &mut Logs) -> SolarResult<Vec<LogEntry>> {
     read_intel_logs(&run, logs)?;
     
     let activity = watch_channels.iter()
@@ -347,7 +347,7 @@ async fn select_logs(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, st
     Ok(activity)
 }
 
-async fn select_replay(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, stamp: Timestamp, logs: &mut ChannelLogs, log_file: &ChatLogFile, channel_id: ChatChannelId) -> SolarResult<Vec<LogEntry>> {
+async fn select_replay(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile, channel_id: ChannelId) -> SolarResult<Vec<LogEntry>> {
     let read = read_intel_log_file(channel_id, &log_file.path(), 0)?;
     logs.push(&run, &log_file, read);
     
@@ -382,7 +382,7 @@ async fn select_client(stamp: Timestamp, tls_client: &mut Option<TlsClientHandle
 #[derive(Debug)]
 pub(crate) struct RunningParams {
     pub(crate) args: Args,
-    pub(crate) arg_channel_ids: Vec<ChatChannelId>,
+    pub(crate) arg_channel_ids: Vec<ChannelId>,
     pub(crate) chat_channels: ChatChannels,
     pub(crate) cfg: Config,
     pub(crate) io: SonarOptions,
@@ -391,7 +391,7 @@ pub(crate) struct RunningParams {
 #[derive(Debug)]
 pub(crate) struct Running {
     pub(crate) args: Args,
-    pub(crate) arg_channel_ids: Vec<ChatChannelId>,
+    pub(crate) arg_channel_ids: Vec<ChannelId>,
     pub(crate) chat_channels: ChatChannels,
     pub(crate) cfg: Config,
 }

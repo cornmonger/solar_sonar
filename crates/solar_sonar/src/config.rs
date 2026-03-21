@@ -12,6 +12,7 @@ const DEFAULT_CLIENT_TOML: &'static str = include_str!("../assets/config/default
 #[derive(Debug, PartialEq, Eq)]
 pub struct Config {
     pub logs_dir: PathBuf,
+    pub modes: Vec<String>,
     pub characters: Vec<CharacterConfig>,
     pub server_profiles: Vec<ServerProfileConfig>,
     pub client_profiles: Vec<ClientProfileConfig>,
@@ -85,6 +86,8 @@ impl Cfg {
             Cow::Owned(p) => p,
         };
         
+        let modes = self.settings.modes;
+        
         let server_profiles = self.server.serve.into_iter()
             .map(|cfg| ServerProfileConfig::try_from_cfg(cfg))
             .collect::<SolarResult<Vec<_>>>()?;
@@ -97,6 +100,7 @@ impl Cfg {
         
         let config = Config {
             logs_dir,
+            modes,
             characters,
             server_profiles,
             client_profiles,
@@ -111,14 +115,14 @@ impl Cfg {
 #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CharacterConfig {
     pub alias: String,
-    pub id: CharacterID,
-    pub intel_channel_ids: Vec<ChatChannelId>,
+    pub id: CharacterId,
+    pub intel_channel_ids: Vec<ChannelId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CharacterCfg {
     pub alias: String,
-    pub id: CharacterID,
+    pub id: CharacterId,
     pub intel_channels: Vec<String>,
 }
 
@@ -170,6 +174,7 @@ impl CharactersCfg {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SettingsCfg {
     pub logs_dir: PathBuf,
+    pub modes: Vec<String>,
 }
 
 impl SettingsCfg {
@@ -323,5 +328,53 @@ fn setup_config_file(filepath: &Path, defaults: &str) -> SolarResult<()> {
         }
     } else {
         SolarError::err_msg("{ERR} please configure {logpath}")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct LogsCfg {
+    #[serde(rename = "log")]
+    pub logs: LogCfg,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct LogCfg {
+    pub kind: String,
+    pub modes: Vec<String>,
+    pub characters: Vec<String>,
+    pub pings: Vec<String>,
+    pub name: Option<String>,
+}
+
+pub type ModeId = u16;
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq,
+    serde::Serialize, serde::Deserialize,
+    bitcode::Encode, bitcode::Decode
+)]
+pub enum PingKind {
+    Combat,
+    Danger,
+    Intel,
+    Message,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LogConfig {
+    pub kind: LogKind,
+    pub modes: Vec<ModeId>,
+    pub characters: Vec<CharacterId>,
+    pub pings: Vec<PingKind>,
+}
+
+impl LogConfig {
+    pub(crate) fn try_from_cfg(cfg: LogCfg, all_modes: &HashMap<String, ModeId>) -> SolarResult<Self> {
+        let kind = LogKind::try_from_enum(cfg.kind)?;
+        let modes = cfg.modes.into_iter()
+            .map(|m| all_modes.get(&m).ok_or_else(|| SolarError::msg("Invalid mode")))
+            .collect::<SolarResult<Vec<_>>>()?;
+        
+        todo!()
     }
 }

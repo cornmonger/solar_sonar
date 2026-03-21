@@ -2,8 +2,8 @@ use crate::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Args {
-    pub watch_character_ids: Vec<CharacterID>,
-    pub watch_system_ids: Vec<SolarID>,
+    pub watch_character_ids: Vec<CharacterId>,
+    pub watch_system_ids: Vec<SolarId>,
     pub jumps: u8,
     pub audio: bool,
     pub stdio: bool,
