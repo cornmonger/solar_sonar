@@ -30,16 +30,13 @@ impl Display for ChatChannelIdx {
 pub struct ChatChannelIndex(Vec<ChatChannelIdx>);
 impl ChatChannelIndex {
     pub fn try_new(channels: Vec<String>) -> SolarResult<Self> {
-        let channels = Index::no_duplicate(channels, ErrNoun::ChatChannel)?
-            .into_iter()
-            .map(|s| ChatChannelIdx {
-                kind: ChatLogKind::from_log_name(&s),
-                id: Index::hash_id(&s),
-                name: s,
-            })
-            .collect::<Vec<_>>();
-
-        Ok(Self(channels))
+        let inner = Self::new_inner(channels, |id, name| ChatChannelIdx {
+            id,
+            kind: ChatLogKind::from_log_name(&name),
+            name,
+        })?;
+        
+        Ok(Self(inner))
     }
 }
 

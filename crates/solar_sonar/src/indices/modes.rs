@@ -30,14 +30,12 @@ pub struct ModeIndex(Vec<ModeIdx>);
 
 impl ModeIndex {
     pub(crate) fn try_new(modes: Vec<String>) -> SolarResult<Self> {
-        let modes = Index::no_duplicate(modes, ErrNoun::Mode)?.into_iter()
-            .map(|name| ModeIdx {
-                id: Index::hash_id(&name),
-                name
-            })
-            .collect::<Vec<_>>();
+        let inner = Self::new_inner(modes, |id, name| ModeIdx { 
+            id,
+            name,
+        })?;
         
-        Ok(Self(modes))
+        Ok(Self(inner))
     }
 }
 

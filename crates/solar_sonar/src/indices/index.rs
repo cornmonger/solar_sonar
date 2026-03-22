@@ -44,6 +44,16 @@ impl Index {
 
 pub(crate) trait IndexedInner<IDX: Idx>: Sized {
     const NOUN: ErrNoun;
+    
+    fn new_inner(inner: Vec<String>, build: fn(IndexId, String) -> IDX) -> SolarResult<Vec<IDX>> {
+        let inner = Index::no_duplicate(inner, Self::NOUN)?
+            .into_iter()
+            .map(|s| build(Index::hash_id(&s), s))
+            .collect::<Vec<_>>();
+
+        Ok(inner)
+    }
+    
     fn inner(&self) -> &Vec<IDX>;
     fn inner_mut(&mut self) -> &mut Vec<IDX>;
     fn take_inner(&mut self) -> Vec<IDX>;
