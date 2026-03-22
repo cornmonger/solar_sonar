@@ -19,6 +19,12 @@ impl Hash for ModeIdx {
     fn hash<H: Hasher>(&self, state: &mut H) { self.id().hash(state); }
 }
 
+impl Display for ModeIdx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.key())
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct ModeIndex(Vec<ModeIdx>);
 

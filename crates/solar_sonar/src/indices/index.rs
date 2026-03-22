@@ -2,7 +2,7 @@ use crate::*;
 
 pub type IndexId = u64;
 
-pub trait Idx: Sized + Hash {
+pub trait Idx: Sized + Hash + Display {
     fn id(&self) -> IndexId;
     fn key(&self) -> &str;
 }

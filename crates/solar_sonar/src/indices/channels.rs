@@ -22,7 +22,7 @@ impl Hash for ChatChannel {
 
 impl Display for ChatChannel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.name)
+        f.write_str(&self.key())
     }
 }
 
