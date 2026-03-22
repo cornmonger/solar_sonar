@@ -73,7 +73,7 @@ impl Cfg {
             .map(String::clone)
             .collect::<Vec<_>>();
         
-        let chat_channels = ChatChannels::try_new(channel_names)?;
+        let chat_channels = ChatChannelIndex::try_new(channel_names)?;
         let characters = self.characters.into_iter()
             .map(|chr| CharacterConfig::from_cfg(chr, &chat_channels))
             .collect::<Vec<_>>();
@@ -128,7 +128,7 @@ pub struct CharacterCfg {
 }
 
 impl CharacterConfig {
-    fn from_cfg(cfg: CharacterCfg, chat_channels: &ChatChannels) -> Self {
+    fn from_cfg(cfg: CharacterCfg, chat_channels: &ChatChannelIndex) -> Self {
         let intel_channel_ids = cfg.intel_channels.into_iter()
             .map(|s| chat_channels.get_keyed(&s).expect("exists").id)
             .collect::<Vec<_>>();
@@ -140,7 +140,7 @@ impl CharacterConfig {
         }
     }
 
-    pub(crate) fn intel_channels<'a>(&self, chat_channels: &'a ChatChannels) -> Vec<&'a ChatChannel> {
+    pub(crate) fn intel_channels<'a>(&self, chat_channels: &'a ChatChannelIndex) -> Vec<&'a ChatChannelIdx> {
         self.intel_channel_ids.iter()
             .map(|cid| chat_channels.get(*cid).expect("exists"))
             .collect()

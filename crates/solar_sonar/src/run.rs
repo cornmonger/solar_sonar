@@ -337,7 +337,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
     Ok(())
 }
 
-async fn select_logs(run: &Running, watch_channels: &Vec<&ChatChannel>, stamp: Timestamp, logs: &mut Logs) -> SolarResult<Vec<LogEntry>> {
+async fn select_logs(run: &Running, watch_channels: &Vec<&ChatChannelIdx>, stamp: Timestamp, logs: &mut Logs) -> SolarResult<Vec<LogEntry>> {
     read_intel_logs(&run, logs)?;
     
     let activity = watch_channels.iter()
@@ -349,7 +349,7 @@ async fn select_logs(run: &Running, watch_channels: &Vec<&ChatChannel>, stamp: T
     Ok(activity)
 }
 
-async fn select_replay(run: &Running, watch_channels: &Vec<&ChatChannel>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile, channel_id: ChannelId) -> SolarResult<Vec<LogEntry>> {
+async fn select_replay(run: &Running, watch_channels: &Vec<&ChatChannelIdx>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile, channel_id: ChannelId) -> SolarResult<Vec<LogEntry>> {
     let read = read_intel_log_file(channel_id, &log_file.path(), 0)?;
     logs.push(&run, &log_file, read);
     
@@ -417,7 +417,7 @@ impl Running {
         Ok(Startup { running, sonar_io })
     }
     
-    pub(crate) fn watch_channels(&self) -> Vec<&ChatChannel> {
+    pub(crate) fn watch_channels(&self) -> Vec<&ChatChannelIdx> {
         let arg_channels = self.arg_channel_ids.iter()
             .map(|id| self.index.chat_channels().get(*id).expect("exists"));
 

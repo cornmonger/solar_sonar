@@ -11,11 +11,11 @@ pub trait Idx: Sized + Hash + Display {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Index {
     modes: ModeIndex,
-    chat_channels: ChatChannels,
+    chat_channels: ChatChannelIndex,
 }
 
 impl Index {
-    pub fn new(modes: ModeIndex, chat_channels: ChatChannels) -> Self {
+    pub fn new(modes: ModeIndex, chat_channels: ChatChannelIndex) -> Self {
         Self { modes, chat_channels}
     }
     
@@ -24,9 +24,9 @@ impl Index {
     }
     
     pub fn modes(&self) -> &ModeIndex { &self.modes }
-    pub fn chat_channels(&self) -> &ChatChannels { &self.chat_channels }
+    pub fn chat_channels(&self) -> &ChatChannelIndex { &self.chat_channels }
     
-    pub fn chat_channels_mut(&mut self) -> &mut ChatChannels {
+    pub fn chat_channels_mut(&mut self) -> &mut ChatChannelIndex {
         &mut self.chat_channels
     }
     

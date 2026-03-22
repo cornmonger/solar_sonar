@@ -6,7 +6,7 @@ use crate::*;
 #[derive(Debug)]
 pub(crate) struct ConfiguredChatLog<'a,'b> {
     pub(crate) file: ChatLogFile,
-    pub(crate) channel: &'b ChatChannel,
+    pub(crate) channel: &'b ChatChannelIdx,
     pub(crate) character: &'a CharacterConfig,
 }
 
