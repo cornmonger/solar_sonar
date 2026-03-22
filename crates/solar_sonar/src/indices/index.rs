@@ -2,10 +2,11 @@ use crate::*;
 
 pub type IndexId = u64;
 
-pub trait Idx: Sized {
+pub trait Idx: Sized + Hash {
     fn id(&self) -> IndexId;
     fn key(&self) -> &str;
 }
+
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Index {

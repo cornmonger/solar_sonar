@@ -16,10 +16,8 @@ impl Idx for ChatChannel {
     fn key(&self) -> &str { self.name() }
 }
 
-impl std::hash::Hash for ChatChannel {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
+impl Hash for ChatChannel {
+    fn hash<H: Hasher>(&self, state: &mut H) { self.id().hash(state); }
 }
 
 impl Display for ChatChannel {

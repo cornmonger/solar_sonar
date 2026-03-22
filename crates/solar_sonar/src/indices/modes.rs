@@ -1,5 +1,3 @@
-use std::mem;
-
 use crate::*;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -15,6 +13,10 @@ impl ModeIdx {
 impl Idx for ModeIdx {
     fn id(&self) -> IndexId { self.id }
     fn key(&self) -> &str { self.name() }
+}
+
+impl Hash for ModeIdx {
+    fn hash<H: Hasher>(&self, state: &mut H) { self.id().hash(state); }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -35,11 +37,9 @@ impl ModeIndex {
 
 impl IndexedInner<ModeIdx> for ModeIndex {
     const NOUN: ErrNoun = ErrNoun::Mode;
-    
     fn inner(&self) -> &Vec<ModeIdx> { &self.0 }
     fn inner_mut(&mut self) -> &mut Vec<ModeIdx> { &mut self.0 }
     fn take_inner(&mut self) -> Vec<ModeIdx> { mem::take(&mut self.0) }
-    
 }
 
 impl Indexed<ModeIdx> for ModeIndex {}

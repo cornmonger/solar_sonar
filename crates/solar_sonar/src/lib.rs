@@ -83,6 +83,7 @@ pub(crate) use std::{
         self,
         File,
     },
+    hash::{Hash, Hasher},
     io::{
         self,
         BufRead,
