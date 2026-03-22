@@ -67,7 +67,8 @@ impl Args {
     pub fn build(self) -> SolarResult<ArgParam> {
         let chat_channels = self.replay_file.as_ref().map(PathBuf::from)
             .and_then(|f| ChatLogFile::from_path_buf(f))
-            .map(|f| ChatChannels::new(vec![f.channel().to_string()]));
+            .map(|f| ChatChannels::try_new(vec![f.channel().to_string()]))
+            .transpose()?;
 
         Ok(ArgParam {
             args: self,

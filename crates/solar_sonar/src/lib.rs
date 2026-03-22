@@ -8,6 +8,11 @@ pub(crate) mod fortune;
 pub(crate) mod generated {
     pub(crate) mod starmap;
 }
+pub(crate) mod indices {
+    pub(crate) mod channels;
+    pub(crate) mod index;
+    pub(crate) mod modes;
+}
 pub(crate) mod logs;
 pub(crate) mod model {
     pub(crate) mod event;
@@ -32,6 +37,11 @@ pub use self::{
     args::{Args, ArgParam},
     config::{Cfg, CfgParam, CharacterCfg, SettingsCfg, TlsCfg, ServerCfg, ClientCfg, ServeCfg, ConnectCfg},
     generated::starmap::STAR_MAP,
+    indices::{
+        channels::*,
+        index::*,
+        modes::*,
+    },
     model::{
         data::*,
         event::*,
@@ -64,7 +74,7 @@ pub(crate) use self::{
 };
 
 pub(crate) use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     borrow::Cow,
     env,
     error::Error,
@@ -82,9 +92,11 @@ pub(crate) use std::{
         Write,
     },
     marker::PhantomData,
+    mem,
     net::{self, IpAddr, Ipv4Addr},
     path::{Path, PathBuf},
     process::{Command, ExitCode},
+    slice,
     sync::{Arc, OnceLock},
     time::{Duration},
 };

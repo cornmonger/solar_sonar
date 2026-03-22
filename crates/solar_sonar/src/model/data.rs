@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::*;
 
 pub type CharacterId = u32;
@@ -162,73 +160,5 @@ impl ChatLogKind {
             "Private" => Self::Private,
             _ => Self::Group,
         }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChatChannelRef<'a> {
-    pub name: &'a str,
-    pub id: ChannelId,
-    pub kind: ChatLogKind,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ChatChannel {
-    pub name: String,
-    pub id: ChannelId,
-    pub kind: ChatLogKind,
-}
-
-impl std::hash::Hash for ChatChannel {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl<'a> From<&'a ChatChannel> for ChatChannelRef<'a> {
-    fn from(v: &'a ChatChannel) -> Self {
-        Self {
-            name: v.name.as_str(),
-            id: v.id,
-            kind: v.kind,
-        }
-    }
-}
-
-impl<'a> Display for ChatChannelRef<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.name)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ChatChannels(HashSet<ChatChannel>);
-impl ChatChannels {
-    pub fn new(channels: Vec<String>) -> Self {
-        let channels = channels.into_iter()
-            .map(|s| ChatChannel {
-                kind: ChatLogKind::from_log_name(&s),
-                id: xxh3_64(s.as_bytes()),
-                name: s,
-            })
-            .collect::<HashSet<_>>();
-
-        Self(channels)
-    }
-
-    pub fn extend(&mut self, channels: ChatChannels) {
-        self.0.extend(channels.0);
-    }
-
-    pub fn find_id(&self, id: ChannelId) -> Option<ChatChannelRef<'_>> {
-        self.0.iter().find(|c| c.id == id).map(ChatChannelRef::from)
-    }
-
-    pub fn find_name(&self, name: &str) -> Option<ChatChannelRef<'_>> {
-        self.0.iter().find(|c| c.name == name).map(ChatChannelRef::from)
-    }
-
-    pub fn iter(&self) -> std::collections::hash_set::Iter<'_, ChatChannel> {
-        self.0.iter()
     }
 }

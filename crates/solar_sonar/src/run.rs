@@ -8,7 +8,7 @@ pub async fn run() -> ExitCode {
     }
     
     let cli = Cli::parse();
-    let Ok(CfgParam{config, mut chat_channels}) = handle_error(Cfg::read()) else {
+    let Ok(CfgParam{config, mut index}) = handle_error(Cfg::read()) else {
         return ExitCode::FAILURE
     };
     let Ok(args_param) = handle_error(Args::try_from_cli(cli, &config)) else {
@@ -19,7 +19,9 @@ pub async fn run() -> ExitCode {
     let arg_channel_ids;
     if let Some(args_chat_channels) = args_chat_channels {
         arg_channel_ids = args_chat_channels.iter().map(|c| c.id).collect::<Vec<_>>();
-        chat_channels.extend(args_chat_channels);
+        if handle_error(index.chat_channels_mut().extend(args_chat_channels)).is_err() {
+            return ExitCode::FAILURE;
+        }
     } else {
         arg_channel_ids = vec![];
     }
@@ -36,7 +38,7 @@ pub async fn run() -> ExitCode {
     let params = RunningParams {
         args,
         cfg: config,
-        chat_channels,
+        index,
         arg_channel_ids,
         io: sonar_options,
     };
@@ -94,7 +96,7 @@ pub fn start(arg: ArgParam, cfg: CfgParam) -> SolarResult<SolarSonarHandle> {
     handle_error(SolarSonar::init_once())?;
 
     let ArgParam { args, chat_channels: args_chat_channels } = arg;
-    let CfgParam { config, mut chat_channels } = cfg;
+    let CfgParam { config, mut index } = cfg;
 
     let sonar_options = SonarOptions {
         audio: args.audio,
@@ -104,7 +106,7 @@ pub fn start(arg: ArgParam, cfg: CfgParam) -> SolarResult<SolarSonarHandle> {
     let arg_channel_ids;
     if let Some(args_chat_channels) = args_chat_channels {
         arg_channel_ids = args_chat_channels.iter().map(|c| c.id).collect::<Vec<_>>();
-        chat_channels.extend(args_chat_channels);
+        index.chat_channels_mut().extend(args_chat_channels)?;
     } else {
         arg_channel_ids = vec![];
     }
@@ -114,7 +116,7 @@ pub fn start(arg: ArgParam, cfg: CfgParam) -> SolarResult<SolarSonarHandle> {
     let run = RunningParams {
         args,
         cfg: config,
-        chat_channels,
+        index,
         arg_channel_ids,
         io: sonar_options,
     };
@@ -182,7 +184,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
     io.broadcast(DataEvent::Args(ArgsData {
         system_ids: run.args.watch_system_ids.clone(),
         character_ids: run.args.watch_character_ids.clone(),
-        channels: watch_channels.iter().map(|s| s.name.to_string()).collect(),
+        channels: watch_channels.iter().map(|s| s.name().to_string()).collect(),
         jumps: run.args.jumps,
         system_range: watch_range.iter().map(|sys| sys.id).collect(),
     }))?;
@@ -335,7 +337,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
     Ok(())
 }
 
-async fn select_logs(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, stamp: Timestamp, logs: &mut Logs) -> SolarResult<Vec<LogEntry>> {
+async fn select_logs(run: &Running, watch_channels: &Vec<&ChatChannel>, stamp: Timestamp, logs: &mut Logs) -> SolarResult<Vec<LogEntry>> {
     read_intel_logs(&run, logs)?;
     
     let activity = watch_channels.iter()
@@ -347,7 +349,7 @@ async fn select_logs(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, st
     Ok(activity)
 }
 
-async fn select_replay(run: &Running, watch_channels: &Vec<ChatChannelRef<'_>>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile, channel_id: ChannelId) -> SolarResult<Vec<LogEntry>> {
+async fn select_replay(run: &Running, watch_channels: &Vec<&ChatChannel>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile, channel_id: ChannelId) -> SolarResult<Vec<LogEntry>> {
     let read = read_intel_log_file(channel_id, &log_file.path(), 0)?;
     logs.push(&run, &log_file, read);
     
@@ -383,7 +385,7 @@ async fn select_client(stamp: Timestamp, tls_client: &mut Option<TlsClientHandle
 pub(crate) struct RunningParams {
     pub(crate) args: Args,
     pub(crate) arg_channel_ids: Vec<ChannelId>,
-    pub(crate) chat_channels: ChatChannels,
+    pub(crate) index: Index,
     pub(crate) cfg: Config,
     pub(crate) io: SonarOptions,
 }
@@ -392,7 +394,7 @@ pub(crate) struct RunningParams {
 pub(crate) struct Running {
     pub(crate) args: Args,
     pub(crate) arg_channel_ids: Vec<ChannelId>,
-    pub(crate) chat_channels: ChatChannels,
+    pub(crate) index: Index,
     pub(crate) cfg: Config,
 }
 
@@ -408,19 +410,19 @@ impl Running {
         let running = Self {
             args: params.args,
             arg_channel_ids: params.arg_channel_ids,
-            chat_channels: params.chat_channels,
+            index: params.index,
             cfg: params.cfg,
         };
         
         Ok(Startup { running, sonar_io })
     }
     
-    pub(crate) fn watch_channels(&self) -> Vec<ChatChannelRef<'_>> {
+    pub(crate) fn watch_channels(&self) -> Vec<&ChatChannel> {
         let arg_channels = self.arg_channel_ids.iter()
-            .map(|id| self.chat_channels.find_id(*id).expect("exists"));
+            .map(|id| self.index.chat_channels().get(*id).expect("exists"));
 
         self.args.watch_characters(&self.cfg).iter()
-            .map(|chr| chr.intel_channels(&self.chat_channels))
+            .map(|chr| chr.intel_channels(&self.index.chat_channels()))
             .flatten()
             .chain(arg_channels)
             .collect()
@@ -441,6 +443,8 @@ impl Running {
     pub(crate) fn client_profile(&self) -> Option<&ClientProfileConfig> {
         find_client_profile(&self.args, &self.cfg)
     }
+    
+    pub(crate) fn index(&self) -> &Index { &self.index }
 }
 
 fn find_server_profile<'a>(args: &Args, cfg: &'a Config) -> Option<&'a ServerProfileConfig> {

@@ -39,6 +39,7 @@ impl IntoIterator for TestKind {
 struct TestCfg {
     characters: &'static [TestCharacterCfg],
     logs_dir: &'static str,
+    modes: &'static [&'static str],
     server: &'static TestServerCfg,
     client: &'static TestClientCfg,
 }
@@ -55,6 +56,9 @@ impl Into<sonar::Cfg> for TestCfg {
                 .collect::<Vec<_>>(),
             settings: sonar::SettingsCfg {
                 logs_dir: expand_path(self.logs_dir),
+                modes: self.modes.iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
             },
             server: self.server.into(),
             client: self.client.into(),
@@ -165,6 +169,7 @@ const TEST_STANDARD_CONFIG: TestCfg = TestCfg {
         },
     ],
     logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs",
+    modes: &["stand", "crab", "attack"],
     server: &TestServerCfg {
         default: Some("test"),
         serve: &[
@@ -194,6 +199,7 @@ const TEST_TLS_CLIENT_CONFIG: TestCfg = TestCfg {
         },
     ],
     logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs",
+    modes: &["stand", "crab", "attack"],
     server: &TestServerCfg {
         default: Some("test"),
         serve: &[

@@ -25,8 +25,15 @@ pub enum SolarError {
     #[snafu(display("Failed to send event I/O"))]
     Send {
     },
+    NotFound { noun: ErrNoun },
+    Duplicate { noun: ErrNoun, item: String },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrNoun {
+    Mode,
+    ChatChannel,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IoOp {
@@ -92,6 +99,18 @@ impl SolarError {
 
     pub(crate) fn broadcast<T>(_source: tokio::sync::broadcast::error::SendError<T>) -> Self {
         Self::Send {}
+    }
+    
+    pub(crate) fn not_found(noun: ErrNoun) -> Self {
+        Self::NotFound { noun }
+    }
+    
+    pub(crate) fn duplicate<S: Into<String>>(noun: ErrNoun, item: S) -> Self {
+        Self::Duplicate { noun, item: item.into() }
+    }
+    
+    pub(crate) fn err_duplicate<S: Into<String>, T>(noun: ErrNoun, item: S) -> SolarResult<T> {
+        Err(Self::duplicate(noun, item))
     }
 }
 

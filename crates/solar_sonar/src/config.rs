@@ -12,7 +12,6 @@ const DEFAULT_CLIENT_TOML: &'static str = include_str!("../assets/config/default
 #[derive(Debug, PartialEq, Eq)]
 pub struct Config {
     pub logs_dir: PathBuf,
-    pub modes: Vec<String>,
     pub characters: Vec<CharacterConfig>,
     pub server_profiles: Vec<ServerProfileConfig>,
     pub client_profiles: Vec<ClientProfileConfig>,
@@ -34,7 +33,7 @@ pub struct Cfg {
 #[derive(Debug, PartialEq, Eq)]
 pub struct CfgParam {
     pub config: Config,
-    pub chat_channels: ChatChannels,
+    pub index: Index,
 }
 
 impl Cfg {
@@ -67,13 +66,14 @@ impl Cfg {
     }
 
     pub fn build(self) -> SolarResult<CfgParam> {
+        //todo: pull from logs.toml
         let channel_names = self.characters.iter()
             .map(|chr| &chr.intel_channels)
             .flatten()
             .map(String::clone)
             .collect::<Vec<_>>();
         
-        let chat_channels = ChatChannels::new(channel_names);
+        let chat_channels = ChatChannels::try_new(channel_names)?;
         let characters = self.characters.into_iter()
             .map(|chr| CharacterConfig::from_cfg(chr, &chat_channels))
             .collect::<Vec<_>>();
@@ -86,7 +86,7 @@ impl Cfg {
             Cow::Owned(p) => p,
         };
         
-        let modes = self.settings.modes;
+        let modes = ModeIndex::try_new(self.settings.modes)?;
         
         let server_profiles = self.server.serve.into_iter()
             .map(|cfg| ServerProfileConfig::try_from_cfg(cfg))
@@ -100,7 +100,6 @@ impl Cfg {
         
         let config = Config {
             logs_dir,
-            modes,
             characters,
             server_profiles,
             client_profiles,
@@ -108,7 +107,9 @@ impl Cfg {
             default_client_profile,
         };
         
-        Ok(CfgParam { config, chat_channels })
+        let index = Index::new(modes, chat_channels);
+        
+        Ok(CfgParam { config, index })
     }
 }
 
@@ -129,7 +130,7 @@ pub struct CharacterCfg {
 impl CharacterConfig {
     fn from_cfg(cfg: CharacterCfg, chat_channels: &ChatChannels) -> Self {
         let intel_channel_ids = cfg.intel_channels.into_iter()
-            .map(|s| chat_channels.find_name(&s).expect("exists").id)
+            .map(|s| chat_channels.get_keyed(&s).expect("exists").id)
             .collect::<Vec<_>>();
 
         Self {
@@ -139,9 +140,9 @@ impl CharacterConfig {
         }
     }
 
-    pub(crate) fn intel_channels<'a>(&self, chat_channels: &'a ChatChannels) -> Vec<ChatChannelRef<'a>> {
+    pub(crate) fn intel_channels<'a>(&self, chat_channels: &'a ChatChannels) -> Vec<&'a ChatChannel> {
         self.intel_channel_ids.iter()
-            .map(|cid| chat_channels.find_id(*cid).expect("exists"))
+            .map(|cid| chat_channels.get(*cid).expect("exists"))
             .collect()
     }
 }
@@ -346,8 +347,6 @@ pub struct LogCfg {
     pub name: Option<String>,
 }
 
-pub type ModeId = u16;
-
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq,
     serde::Serialize, serde::Deserialize,
@@ -363,13 +362,13 @@ pub enum PingKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LogConfig {
     pub kind: LogKind,
-    pub modes: Vec<ModeId>,
+    pub modes: Vec<IndexId>,
     pub characters: Vec<CharacterId>,
     pub pings: Vec<PingKind>,
 }
 
 impl LogConfig {
-    pub(crate) fn try_from_cfg(cfg: LogCfg, all_modes: &HashMap<String, ModeId>) -> SolarResult<Self> {
+    pub(crate) fn try_from_cfg(cfg: LogCfg, all_modes: &HashMap<String, IndexId>) -> SolarResult<Self> {
         let kind = LogKind::try_from_enum(cfg.kind)?;
         let modes = cfg.modes.into_iter()
             .map(|m| all_modes.get(&m).ok_or_else(|| SolarError::msg("Invalid mode")))

@@ -6,7 +6,7 @@ use crate::*;
 #[derive(Debug)]
 pub(crate) struct ConfiguredChatLog<'a,'b> {
     pub(crate) file: ChatLogFile,
-    pub(crate) channel: ChatChannelRef<'b>,
+    pub(crate) channel: &'b ChatChannel,
     pub(crate) character: &'a CharacterConfig,
 }
 
@@ -192,7 +192,7 @@ impl Logs {
     }
 
     pub(crate) fn push(&mut self, run: &Running, logfile: &ChatLogFile, read: LogRead) {
-        let channel = run.chat_channels.find_name(logfile.channel()).expect("chan");
+        let channel = run.index().chat_channels().get_keyed(logfile.channel()).expect("chan");
         if self.0.contains_key(&channel.id) {
             let log = self.0.get_mut(&channel.id).expect("exists");
             log.entries.extend(read.entries);
@@ -333,7 +333,7 @@ pub(crate) fn read_intel_logs(run: &Running, logs: &mut Logs) -> SolarResult<()>
 
             let log_character_id = file.character_id();
             let log_channel = file.channel();
-            let Some(log_channel) = run.chat_channels.find_name(log_channel) else {
+            let Ok(log_channel) = run.index().chat_channels().get_keyed(log_channel) else {
                 return None
             };
 
