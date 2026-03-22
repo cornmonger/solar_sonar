@@ -56,7 +56,7 @@ pub(crate) trait IndexedInner<IDX: Idx>: Sized {
     
     fn inner(&self) -> &Vec<IDX>;
     fn inner_mut(&mut self) -> &mut Vec<IDX>;
-    fn take_inner(&mut self) -> Vec<IDX>;
+    fn take_inner(&mut self) -> Vec<IDX> { mem::take(self.inner_mut()) }
 }
 
 #[allow(private_bounds)]

@@ -43,7 +43,6 @@ impl IndexedInner<ModeIdx> for ModeIndex {
     const NOUN: ErrNoun = ErrNoun::Mode;
     fn inner(&self) -> &Vec<ModeIdx> { &self.0 }
     fn inner_mut(&mut self) -> &mut Vec<ModeIdx> { &mut self.0 }
-    fn take_inner(&mut self) -> Vec<ModeIdx> { mem::take(&mut self.0) }
 }
 
 impl Indexed<ModeIdx> for ModeIndex {}

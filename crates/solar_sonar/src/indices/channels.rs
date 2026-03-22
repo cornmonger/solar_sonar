@@ -44,7 +44,7 @@ impl IndexedInner<ChatChannelIdx> for ChatChannelIndex {
     const NOUN: ErrNoun = ErrNoun::ChatChannel;
     fn inner(&self) -> &Vec<ChatChannelIdx> { &self.0 }
     fn inner_mut(&mut self) -> &mut Vec<ChatChannelIdx> { &mut self.0 }
-    fn take_inner(&mut self) -> Vec<ChatChannelIdx> { mem::take(&mut self.0) }
+    fn take_inner(&mut self) -> Vec<ChatChannelIdx> { mem::take(self.inner_mut()) }
 }
 
 impl Indexed<ChatChannelIdx> for ChatChannelIndex {}
