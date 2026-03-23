@@ -3,7 +3,15 @@ pub(crate) mod assets;
 pub(crate) mod audio;
 pub(crate) mod error;
 pub(crate) mod cli;
-pub(crate) mod config;
+pub(crate) mod cfg {
+    pub(crate) mod characters;
+    pub(crate) mod client;
+    pub(crate) mod config;
+    pub(crate) mod logs;
+    pub(crate) mod server;
+    pub(crate) mod settings;
+    pub(crate) mod tls;
+}
 pub(crate) mod fortune;
 pub(crate) mod generated {
     pub(crate) mod starmap;
@@ -15,10 +23,20 @@ pub(crate) mod indices {
 }
 pub(crate) mod logs;
 pub(crate) mod model {
-    pub(crate) mod event;
-    pub(crate) mod data;
+    pub(crate) mod msg {
+        pub(crate) mod event;
+        pub(crate) mod log;
+        pub(crate) mod ping;
+    }
+    pub(crate) mod eve {
+        pub(crate) mod star_map;
+        pub(crate) mod types;
+    }
 }
 pub(crate) mod paths;
+pub(crate) mod map {
+    pub(crate) mod nav;
+}
 pub(crate) mod run;
 pub(crate) mod sonar_io {
     pub(crate) mod sonar;
@@ -35,16 +53,34 @@ pub(crate) mod tls {
 
 pub use self::{
     args::{Args, ArgParam},
-    config::{Cfg, CfgParam, CharacterCfg, SettingsCfg, TlsCfg, ServerCfg, ClientCfg, ServeCfg, ConnectCfg},
+    cfg::{
+        characters::*,
+        client::*,
+        config::*,
+        logs::*,
+        server::*,
+        settings::*,
+        tls::*,
+    },
     generated::starmap::STAR_MAP,
     indices::{
         channels::*,
         index::*,
         modes::*,
     },
+    map::{
+        nav::*,
+    },
     model::{
-        data::*,
-        event::*,
+        eve::{
+            star_map::*,
+            types::*,
+        },
+        msg::{
+            event::*,
+            log::*,
+            ping::*,
+        },
     },
     run::{run,start,SolarSonar},
 };
@@ -52,7 +88,6 @@ pub use self::{
 pub(crate) use self::{
     assets::*,
     error::*,
-    config::*,
     cli::*,
     fortune::*,
     logs::*,
