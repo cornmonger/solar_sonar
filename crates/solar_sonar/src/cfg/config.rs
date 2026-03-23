@@ -9,6 +9,7 @@ pub(crate) const CERTS_DIR: &'static str = "certs";
 pub struct Config {
     pub logs_dir: PathBuf,
     pub characters: Vec<CharacterConfig>,
+    pub logs: Vec<LogConfig>,
     pub server_profiles: Vec<ServerProfileConfig>,
     pub client_profiles: Vec<ClientProfileConfig>,
     pub default_client_profile: Option<String>,
@@ -19,8 +20,9 @@ pub struct Config {
 /// Call [Cfg::read], [Cfg::read_dir], or [Cfg::build] to prepare.
 #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Cfg {
-    pub characters: Vec<CharacterCfg>,
     pub settings: SettingsCfg,
+    pub characters: Vec<CharacterCfg>,
+    pub logs: Vec<LogCfg>,
     pub server: ServerCfg,
     pub client: ClientCfg,
 }
@@ -50,18 +52,28 @@ impl Cfg {
         };
         
         let settings = SettingsCfg::read(&config_dir)?;
-
+        
         let characters = CharactersCfg::read(&config_dir)?
-            .character.into_iter()
+            .characters.into_iter()
+            .collect::<Vec<_>>();
+        
+        let logs = LogsCfg::read(&config_dir)?
+            .logs.into_iter()
             .collect::<Vec<_>>();
         
         let server = ServerCfg::read(&config_dir)?;
         let client = ClientCfg::read(&config_dir)?;
         
-        Cfg { characters, settings, server, client }.build()
+        Cfg { settings, characters, logs, server, client }.build()
     }
 
-    pub fn build(self) -> SolarResult<CfgParam> {
+    pub fn build(mut self) -> SolarResult<CfgParam> {
+        let characters = self.characters.into_iter()
+            .map(|chr| CharacterConfig::try_from_cfg(chr))
+            .collect::<Vec<_>>();
+        
+        let character_index = CharacterIndex::try_from_cfg(&characters)?;
+        
         let logs_dir = shellexpand::path::full(&self.settings.logs_dir)
             .map_err(|_| SolarError::msg(format!("Environment expansion failed for settings.log_dir: {}", self.settings.logs_dir.to_string_lossy())))?;
         
@@ -70,21 +82,18 @@ impl Cfg {
             Cow::Owned(p) => p,
         };
         
-        let modes = ModeIndex::try_new(self.settings.modes)?;
+        let mode_index = ModeIndex::try_new(self.settings.modes)?;
         
-        //todo: pull from logs.toml
-        let channel_names = self.characters.iter()
-            .map(|chr| &chr.intel_channels)
-            .flatten()
-            .map(String::clone)
+        let channel_names = self.logs.iter_mut()
+            .filter_map(|log| log.name.as_ref().map(|name| name.to_string()))
             .collect::<Vec<_>>();
         
         let chat_channels = ChatChannelIndex::try_new(channel_names)?;
         
+        let logs = self.logs.into_iter()
+            .map(|log| LogConfig::try_from_cfg(log, &mode_index, &character_index, &chat_channels))
+            .collect::<SolarResult<Vec<_>>>()?;
         
-        let characters = self.characters.into_iter()
-            .map(|chr| CharacterConfig::try_from_cfg(chr))
-            .collect::<Vec<_>>();
         
         let server_profiles = self.server.serve.into_iter()
             .map(|cfg| ServerProfileConfig::try_from_cfg(cfg))
@@ -99,13 +108,14 @@ impl Cfg {
         let config = Config {
             logs_dir,
             characters,
+            logs,
             server_profiles,
             client_profiles,
             default_server_profile,
             default_client_profile,
         };
         
-        let index = Index::new(modes, chat_channels);
+        let index = Index::new(mode_index, character_index, chat_channels);
         
         Ok(CfgParam { config, index })
     }

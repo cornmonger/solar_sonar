@@ -16,7 +16,8 @@ pub struct CharacterCfg {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CharactersCfg {
-    pub character: Vec<CharacterCfg>,
+    #[serde(rename = "character")]
+    pub characters: Vec<CharacterCfg>,
 }
 
 impl CfgToml for CharactersCfg {
@@ -32,4 +33,8 @@ impl CharacterConfig {
             name: cfg.name,
         }
     }
+}
+
+impl IndexKey for CharacterConfig {
+    fn index_key(&self) -> &str { &self.alias }
 }

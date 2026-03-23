@@ -178,13 +178,13 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
         }
     }
     
-    let watch_channels = run.watch_channels();
+    let watch_channels = run.watch_logs();
     let watch_range = run.watch_range();
 
     io.broadcast(DataEvent::Args(ArgsData {
         system_ids: run.args.watch_system_ids.clone(),
         character_ids: run.args.watch_character_ids.clone(),
-        channels: watch_channels.iter().map(|s| s.name().to_string()).collect(),
+        channels: watch_channels.clone(),
         jumps: run.args.jumps,
         system_range: watch_range.iter().map(|sys| sys.id).collect(),
     }))?;
@@ -337,7 +337,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
     Ok(())
 }
 
-async fn select_logs(run: &Running, watch_channels: &Vec<&ChatChannelIdx>, stamp: Timestamp, logs: &mut Logs) -> SolarResult<Vec<LogEntry>> {
+async fn select_logs(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs) -> SolarResult<Vec<LogEntry>> {
     read_intel_logs(&run, logs)?;
     
     let activity = watch_channels.iter()
@@ -349,7 +349,7 @@ async fn select_logs(run: &Running, watch_channels: &Vec<&ChatChannelIdx>, stamp
     Ok(activity)
 }
 
-async fn select_replay(run: &Running, watch_channels: &Vec<&ChatChannelIdx>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile, channel_id: ChannelId) -> SolarResult<Vec<LogEntry>> {
+async fn select_replay(run: &Running, watch_channels: &Vec<&CharacterLogIdx>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile, channel_id: IndexId) -> SolarResult<Vec<LogEntry>> {
     let read = read_intel_log_file(channel_id, &log_file.path(), 0)?;
     logs.push(&run, &log_file, read);
     
@@ -384,7 +384,7 @@ async fn select_client(stamp: Timestamp, tls_client: &mut Option<TlsClientHandle
 #[derive(Debug)]
 pub(crate) struct RunningParams {
     pub(crate) args: Args,
-    pub(crate) arg_channel_ids: Vec<ChannelId>,
+    pub(crate) arg_channel_ids: Vec<IndexId>,
     pub(crate) index: Index,
     pub(crate) cfg: Config,
     pub(crate) io: SonarOptions,
@@ -393,7 +393,7 @@ pub(crate) struct RunningParams {
 #[derive(Debug)]
 pub(crate) struct Running {
     pub(crate) args: Args,
-    pub(crate) arg_channel_ids: Vec<ChannelId>,
+    pub(crate) arg_channel_ids: Vec<IndexId>,
     pub(crate) index: Index,
     pub(crate) cfg: Config,
 }
@@ -417,14 +417,26 @@ impl Running {
         Ok(Startup { running, sonar_io })
     }
     
-    pub(crate) fn watch_channels(&self) -> Vec<&ChatChannelIdx> {
+    pub(crate) fn watch_logs(&self) -> Vec<CharacterLog> {
         let arg_channels = self.arg_channel_ids.iter()
             .map(|id| self.index.chat_channels().get(*id).expect("exists"));
-
+        
         self.args.watch_characters(&self.cfg).iter()
-            .map(|chr| chr.intel_channels(&self.index.chat_channels()))
+            .filter_map(|chr| {
+                let logs = self.cfg.logs.iter()
+                    .filter_map(|log| match log.characters.contains(&chr.id) {
+                        true => Some(CharacterLog::from_kind(log.kind, chr.id, log.name)),
+                        false => None,
+                    })
+                    .collect::<Vec<_>>();
+                
+                match logs.is_empty() {
+                    true => None,
+                    false => Some(logs),
+                }
+            })
             .flatten()
-            .chain(arg_channels)
+            //.chain(arg_channels) todo fix
             .collect()
     }
     

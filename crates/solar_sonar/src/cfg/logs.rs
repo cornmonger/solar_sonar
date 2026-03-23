@@ -3,7 +3,7 @@ use crate::*;
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LogsCfg {
     #[serde(rename = "log")]
-    pub logs: LogCfg,
+    pub logs: Vec<LogCfg>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -21,15 +21,34 @@ pub struct LogConfig {
     pub modes: Vec<IndexId>,
     pub characters: Vec<CharacterId>,
     pub pings: Vec<PingKind>,
+    /// applicable to group chat channels only
+    pub name: Option<IndexId>,
+}
+
+impl CfgToml for LogsCfg {
+    const TOML_FILENAME: &'static str = "logs.toml";
+    const DEFAULT_TOML: &'static str = include_str!("../../assets/config/default/logs.toml");
 }
 
 impl LogConfig {
-    pub(crate) fn try_from_cfg(cfg: LogCfg, all_modes: &HashMap<String, IndexId>) -> SolarResult<Self> {
-        let kind = LogKind::try_from_enum(cfg.kind)?;
+    pub(crate) fn try_from_cfg(cfg: LogCfg, mode_index: &ModeIndex, character_index: &CharacterIndex, channel_index: &ChatChannelIndex) -> SolarResult<Self> {
+        let kind = LogKind::try_from_input(&cfg.kind)?;
         let modes = cfg.modes.into_iter()
-            .map(|m| all_modes.get(&m).ok_or_else(|| SolarError::msg("Invalid mode")))
+            .map(|m| mode_index.find(&m).map(|idx| idx.id()))
+            .collect::<SolarResult<Vec<_>>>()?;
+        let characters = cfg.characters.into_iter()
+            .map(|c| character_index.find(&c).map(|idx| idx.character_id()))
+            .collect::<SolarResult<Vec<_>>>()?;
+        let pings = cfg.pings.into_iter()
+            .map(|p| PingKind::try_from_input(&p))
             .collect::<SolarResult<Vec<_>>>()?;
         
-        todo!()
+        let name = match(kind, cfg.name) {
+            (LogKind::Group, Some(name)) => Ok(Some(channel_index.find(&name).expect("indexed").id())),
+            (LogKind::Group, None) => SolarError::err_msg(format!("Name is required for group chat logs")),
+            _ => Ok(None),
+        }?;
+        
+        Ok(Self { kind, modes, characters, pings, name })
     }
 }

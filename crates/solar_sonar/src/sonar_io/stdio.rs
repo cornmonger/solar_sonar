@@ -88,7 +88,7 @@ fn on_args(run: &Running, data: &ArgsData) -> SolarResult<()> {
             .join(", ")
     );
     
-    let channels = run.watch_channels().into_iter()
+    let channels = run.watch_logs().into_iter()
         .map(|s| format!("{GREEN}{s}{CLR}"))
         .collect::<Vec<_>>()
         .join(" ");

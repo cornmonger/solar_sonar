@@ -18,6 +18,7 @@ pub(crate) mod generated {
 }
 pub(crate) mod indices {
     pub(crate) mod channels;
+    pub(crate) mod characters;
     pub(crate) mod index;
     pub(crate) mod modes;
 }
@@ -65,6 +66,7 @@ pub use self::{
     generated::starmap::STAR_MAP,
     indices::{
         channels::*,
+        characters::*,
         index::*,
         modes::*,
     },

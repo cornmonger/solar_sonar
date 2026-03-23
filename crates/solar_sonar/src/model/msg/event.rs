@@ -44,7 +44,7 @@ pub enum DataEvent {
 pub struct ArgsData {
     pub system_ids: Vec<SolarId>,
     pub character_ids: Vec<CharacterId>,
-    pub channels: Vec<String>,
+    pub channels: Vec<CharacterLog>,
     pub jumps: u8,
     pub system_range: Vec<SolarId>,
 }

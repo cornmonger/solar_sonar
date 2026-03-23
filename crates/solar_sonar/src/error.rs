@@ -25,14 +25,17 @@ pub enum SolarError {
     #[snafu(display("Failed to send event I/O"))]
     Send {
     },
-    NotFound { noun: ErrNoun },
-    Duplicate { noun: ErrNoun, item: String },
+    NotFound { noun: ErrNoun, name: String },
+    Duplicate { noun: ErrNoun, name: String },
+    Enum { noun: ErrNoun, input: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrNoun {
     Mode,
     ChatChannel,
+    LogKind,
+    PingKind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -101,16 +104,24 @@ impl SolarError {
         Self::Send {}
     }
     
-    pub(crate) fn not_found(noun: ErrNoun) -> Self {
-        Self::NotFound { noun }
+    pub(crate) fn not_found<S: Display>(noun: ErrNoun, name: S) -> Self {
+        Self::NotFound { noun, name: name.to_string() }
     }
     
-    pub(crate) fn duplicate<S: Into<String>>(noun: ErrNoun, item: S) -> Self {
-        Self::Duplicate { noun, item: item.into() }
+    pub(crate) fn duplicate<S: Display>(noun: ErrNoun, name: S) -> Self {
+        Self::Duplicate { noun, name: name.to_string() }
     }
     
-    pub(crate) fn err_duplicate<S: Into<String>, T>(noun: ErrNoun, item: S) -> SolarResult<T> {
-        Err(Self::duplicate(noun, item))
+    pub(crate) fn err_duplicate<S: Display, T>(noun: ErrNoun, name: S) -> SolarResult<T> {
+        Err(Self::duplicate(noun, name))
+    }
+    
+    pub(crate) fn invalid_enum<S: Display>(noun: ErrNoun, input: S) -> Self {
+        Self::Enum { noun, input: input.to_string() }
+    }
+    
+    pub(crate) fn err_enum<S: Display, T>(noun: ErrNoun, input: S) -> SolarResult<T> {
+        Err(Self::invalid_enum(noun, input))
     }
 }
 

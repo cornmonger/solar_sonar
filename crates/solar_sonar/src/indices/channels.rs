@@ -4,7 +4,6 @@ use crate::*;
 pub struct ChatChannelIdx {
     pub id: IndexId,
     pub name: String,
-    pub kind: ChatLogKind,
 }
 
 impl ChatChannelIdx {
@@ -32,7 +31,6 @@ impl ChatChannelIndex {
     pub fn try_new(channels: Vec<String>) -> SolarResult<Self> {
         let inner = Self::new_inner(channels, |id, name| ChatChannelIdx {
             id,
-            kind: ChatLogKind::from_log_name(&name),
             name,
         })?;
         

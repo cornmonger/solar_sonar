@@ -81,7 +81,7 @@ impl Args {
             .filter_map(|id| cfg.characters.iter().find(|chr| &chr.id == id))
             .collect()
     }
-
+    
     pub(crate) fn watch_systems(&self) -> Vec<&'static SolarSystem > {
         self.watch_system_ids.iter()
             .map(|id| STAR_MAP.system(id))
