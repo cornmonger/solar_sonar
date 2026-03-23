@@ -341,7 +341,7 @@ async fn select_logs(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: T
     read_intel_logs(&run, logs)?;
     
     let activity = watch_channels.iter()
-        .flat_map(|channel| logs.take_entries(channel.id))
+        .flat_map(|channel| logs.take_entries(channel))
         .filter(|entry| entry.timestamp > stamp)
         .filter(|entry| !entry.analysis.system_ids().is_empty())
         .collect::<Vec<_>>();
