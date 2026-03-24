@@ -6,7 +6,7 @@ use crate::*;
 #[derive(Debug)]
 pub(crate) struct ConfiguredChatLog<'a> {
     pub(crate) file: ChatLogFile,
-    pub(crate) channel: CharacterLog,
+    pub(crate) character_log: CharacterLog,
     pub(crate) character: &'a CharacterConfig,
 }
 
@@ -189,8 +189,8 @@ impl Logs {
 
     pub(crate) fn push(&mut self, run: &Running, logfile: &ChatLogFile, read: LogRead) {
         let channel_id = run.index().chat_channels().find(logfile.channel()).expect("chan");
-        if self.0.contains_key(&channel_id.id) {
-            let log = self.0.get_mut(&channel_id.id).expect("exists");
+        if self.0.contains_key(&read.character_log) {
+            let log = self.0.get_mut(&read.character_log).expect("exists");
             log.entries.extend(read.entries);
             log.sources
                 .entry(logfile.character_id())
@@ -205,7 +205,7 @@ impl Logs {
 
         } else {
             let log = Log {
-                character_log: channel_id.id,
+                character_log: read.character_log,
                 entries: read.entries,
                 sources: HashMap::from([
                     (
@@ -218,7 +218,7 @@ impl Logs {
                 ]),
             };
 
-            self.0.insert(channel_id.id, log);
+            self.0.insert(read.character_log, log);
         }
     }
     
@@ -343,13 +343,13 @@ pub(crate) fn read_intel_logs(run: &Running, logs: &mut Logs) -> SolarResult<()>
                         continue;
                     }
 
-                    return Some(ConfiguredChatLog { file, character, channel: log_channel })
+                    return Some(ConfiguredChatLog { file, character, character_log: log_channel })
                 }
             }
 
             None
         })
-        .into_group_map_by(|log| (log.character.id, log.channel.id))
+        .into_group_map_by(|log| (log.character.id, log.character_log.id))
         .into_iter()
         .map(|(_k, mut v)| {
             v.sort_by(|a, b| a.file.timestamp().cmp(b.file.timestamp()));
@@ -358,7 +358,7 @@ pub(crate) fn read_intel_logs(run: &Running, logs: &mut Logs) -> SolarResult<()>
         .collect::<Vec<_>>();
 
     for chatlog in chatlogs {
-        let log = logs.get_mut(chatlog.channel.id).expect("log exists");
+        let log = logs.get_mut(chatlog.character_log.id).expect("log exists");
         let log_source = {
             let source = log.sources
                 .entry(chatlog.character.id)
@@ -372,7 +372,7 @@ pub(crate) fn read_intel_logs(run: &Running, logs: &mut Logs) -> SolarResult<()>
             source
         };
 
-        let read = read_intel_log_file(chatlog.channel.id, chatlog.file.path(), log_source.cursor)?;
+        let read = read_intel_log_file(chatlog.character_log.id, chatlog.file.path(), log_source.cursor)?;
         log_source.cursor = read.cursor;
         log.entries.extend(read.entries);
     }
@@ -382,6 +382,7 @@ pub(crate) fn read_intel_logs(run: &Running, logs: &mut Logs) -> SolarResult<()>
 
 #[derive(Debug)]
 pub(crate) struct LogRead {
+    pub(crate) character_log: CharacterLog,
     pub(crate) cursor: u64,
     pub(crate) entries: Vec<LogEntry>,
 }
@@ -455,7 +456,7 @@ pub(crate) fn read_intel_log_file(character_log: CharacterLog, filepath: &Path, 
         entries.push(entry);
     }
 
-    Ok(LogRead { cursor, entries })
+    Ok(LogRead { character_log, cursor, entries })
 }
 
 impl LogEntry {

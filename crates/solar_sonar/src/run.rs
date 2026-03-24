@@ -349,8 +349,8 @@ async fn select_logs(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: T
     Ok(activity)
 }
 
-async fn select_replay(run: &Running, watch_channels: &Vec<&CharacterLogIdx>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile, channel_id: IndexId) -> SolarResult<Vec<LogEntry>> {
-    let read = read_intel_log_file(channel_id, &log_file.path(), 0)?;
+async fn select_replay(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile, character_log: &CharacterLog) -> SolarResult<Vec<LogEntry>> {
+    let read = read_intel_log_file(character_log, &log_file.path(), 0)?;
     logs.push(&run, &log_file, read);
     
     let activity = watch_channels.iter()

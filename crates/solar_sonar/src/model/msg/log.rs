@@ -15,6 +15,17 @@ pub enum CharacterLog {
 }
 
 impl CharacterLog {
+    pub fn display_str<'a>(&self, index: &'a Index) -> &'a str {
+        match self {
+            Self::Game {..} => "Game",
+            Self::Local {..} => "Local",
+            Self::Alliance {..} => "Alliance",
+            Self::Corporation {..} => "Corp",
+            Self::Fleet {..} => "Fleet",
+            Self::Group { channel_id, .. } => &index.chat_channels().get(*channel_id).expect("channel indexed").name,
+        }
+    }
+    
     pub fn from_kind(kind: LogKind, character_id: CharacterId, channel_id: Option<IndexId>) -> Self {
         match kind {
             LogKind::Game => Self::Game { character_id },
