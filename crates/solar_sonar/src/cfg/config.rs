@@ -88,7 +88,7 @@ impl Cfg {
             .filter_map(|log| log.name.as_ref().map(|name| name.to_string()))
             .collect::<Vec<_>>();
         
-        let chat_channels = ChatChannelIndex::try_new(channel_names)?;
+        let chat_channels = ChannelNameIndex::try_new(channel_names)?;
         
         let logs = self.logs.into_iter()
             .map(|log| LogConfig::try_from_cfg(log, &mode_index, &character_index, &chat_channels))

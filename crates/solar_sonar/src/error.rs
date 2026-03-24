@@ -33,7 +33,7 @@ pub enum SolarError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrNoun {
     Mode,
-    ChatChannel,
+    ChannelName,
     LogKind,
     PingKind,
 }

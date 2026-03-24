@@ -11,4 +11,4 @@
 logs_dir = "~/Documents/EVE/logs"
 
 # Define mode names for use in other settings
-modes = ["stand", "crab", "attack"]
+modes = ["stand", "crab", "op"]

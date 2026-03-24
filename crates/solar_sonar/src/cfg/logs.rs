@@ -31,7 +31,7 @@ impl CfgToml for LogsCfg {
 }
 
 impl LogConfig {
-    pub(crate) fn try_from_cfg(cfg: LogCfg, mode_index: &ModeIndex, character_index: &CharacterIndex, channel_index: &ChatChannelIndex) -> SolarResult<Self> {
+    pub(crate) fn try_from_cfg(cfg: LogCfg, mode_index: &ModeIndex, character_index: &CharacterIndex, channel_index: &ChannelNameIndex) -> SolarResult<Self> {
         let kind = LogKind::try_from_input(&cfg.kind)?;
         let modes = cfg.modes.into_iter()
             .map(|m| mode_index.find(&m).map(|idx| idx.id()))

@@ -15,6 +15,24 @@ pub enum CharacterLog {
 }
 
 impl CharacterLog {
+    pub fn character_id(&self) -> CharacterId {
+        match self {
+            Self::Game { character_id } 
+            | Self::Local { character_id }
+            | Self::Alliance { character_id }
+            | Self::Corporation { character_id }
+            | Self::Fleet { character_id }
+            | Self::Group { character_id, .. } => *character_id
+        }
+    }
+    
+    pub fn channel_name_id(&self) -> Option<IndexId> {
+        match self {
+            Self::Group { channel_id,.. } => Some(*channel_id),
+            _ => None,
+        }
+    }
+    
     pub fn display_str<'a>(&self, index: &'a Index) -> &'a str {
         match self {
             Self::Game {..} => "Game",
@@ -34,6 +52,17 @@ impl CharacterLog {
             LogKind::Corporation => Self::Corporation { character_id },
             LogKind::Fleet => Self::Fleet { character_id },
             LogKind::Group => Self::Group { character_id, channel_id: channel_id.expect("channel id") },
+        }
+    }
+    
+    pub fn to_kind(&self) -> LogKind {
+        match self {
+            Self::Game {..} => LogKind::Game,
+            Self::Local {..} => LogKind::Local,
+            Self::Alliance {..} => LogKind::Alliance,
+            Self::Corporation {..} => LogKind::Corporation,
+            Self::Fleet {..} => LogKind::Fleet,
+            Self::Group {..} => LogKind::Group,
         }
     }
 }

@@ -12,12 +12,12 @@ pub trait Idx: Sized + Hash + Display {
 pub struct Index {
     characters: CharacterIndex,
     modes: ModeIndex,
-    chat_channels: ChatChannelIndex,
+    channel_names: ChannelNameIndex,
 }
 
 impl Index {
-    pub fn new(modes: ModeIndex, characters: CharacterIndex, chat_channels: ChatChannelIndex) -> Self {
-        Self { modes, characters, chat_channels}
+    pub fn new(modes: ModeIndex, characters: CharacterIndex, channel_names: ChannelNameIndex) -> Self {
+        Self { modes, characters, channel_names}
     }
     
     pub fn hash_id(s: &str) -> IndexId {
@@ -26,10 +26,10 @@ impl Index {
     
     pub fn characters(&self) -> &CharacterIndex { &self.characters }
     pub fn modes(&self) -> &ModeIndex { &self.modes }
-    pub fn chat_channels(&self) -> &ChatChannelIndex { &self.chat_channels }
+    pub fn chat_channels(&self) -> &ChannelNameIndex { &self.channel_names }
     
-    pub fn chat_channels_mut(&mut self) -> &mut ChatChannelIndex {
-        &mut self.chat_channels
+    pub fn chat_channels_mut(&mut self) -> &mut ChannelNameIndex {
+        &mut self.channel_names
     }
     
     pub(crate) fn no_duplicate(v: Vec<String>, noun: ErrNoun) -> SolarResult<Vec<String>> {

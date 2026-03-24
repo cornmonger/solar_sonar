@@ -7,7 +7,7 @@ use crate::*;
 pub(crate) struct ConfiguredChatLog<'a> {
     pub(crate) file: ChatLogFile,
     pub(crate) character_log: CharacterLog,
-    pub(crate) character: &'a CharacterConfig,
+    pub(crate) character_cfg: &'a CharacterConfig,
 }
 
 #[derive(Debug)]
@@ -329,6 +329,7 @@ fn make_datetime(date: &str, time: &str) -> Option<DateTime<Utc>> {
 pub(crate) fn read_intel_logs(run: &Running, logs: &mut Logs) -> SolarResult<()> {
     let chat_logs_dir = run.cfg.logs_dir.join("Chatlogs");
     let watch_chrs = run.args.watch_characters(&run.cfg);
+    let index = run.index();
 
     let chatlogs = fs::read_dir(&chat_logs_dir)
         .map_err(|e| SolarError::list(e, &chat_logs_dir))?
@@ -339,29 +340,29 @@ pub(crate) fn read_intel_logs(run: &Running, logs: &mut Logs) -> SolarResult<()>
                 return None
             };
 
-            let log_character_id = file.character_id();
-            let log_channel = file.channel();
-            let Ok(log_channel) = run.index().chat_channels().find(log_channel) else {
+            let character_id = file.character_id();
+            let Ok(character_log) = file.to_character_log(&index) else {
+                return None
+            };
+            let log_kind = character_log.to_kind();
+            let channel_name_id = character_log.channel_name_id();
+            let Some(character_cfg) = watch_chrs.iter().find(|chr| chr.id == character_id) else {
                 return None
             };
 
-            for character in &watch_chrs {
-                if log_character_id != character.id {
-                    continue;
-                }
-                
-                for channel_id in &character.intel_channel_ids {
-                    if log_channel.id != *channel_id {
-                        continue;
-                    }
-
-                    return Some(ConfiguredChatLog { file, character, character_log: log_channel })
-                }
-            }
-
-            None
+            let log_cfg = run.cfg.logs.iter()
+                .find(|log| {
+                    log.kind == log_kind
+                    && log.name == channel_name_id
+                    && log.characters.contains(&character_id)
+                });
+            let Some(log_cfg) = log_cfg else {
+                return None
+            };
+            
+            Some(ConfiguredChatLog { file, character_cfg, character_log })
         })
-        .into_group_map_by(|log| (log.character.id, log.character_log.id))
+        .into_group_map_by(|log| log.character_log)
         .into_iter()
         .map(|(_k, mut v)| {
             v.sort_by(|a, b| a.file.timestamp().cmp(b.file.timestamp()));
@@ -370,10 +371,10 @@ pub(crate) fn read_intel_logs(run: &Running, logs: &mut Logs) -> SolarResult<()>
         .collect::<Vec<_>>();
 
     for chatlog in chatlogs {
-        let log = logs.get_mut(chatlog.character_log.id).expect("log exists");
+        let log = logs.get_mut(chatlog.character_log).expect("log exists");
         let log_source = {
             let source = log.sources
-                .entry(chatlog.character.id)
+                .entry(chatlog.character_cfg.id)
                 .or_insert(LogSource { file: chatlog.file.path().to_path_buf(), cursor: 0 });
 
             if source.file != chatlog.file.path() {
@@ -384,7 +385,7 @@ pub(crate) fn read_intel_logs(run: &Running, logs: &mut Logs) -> SolarResult<()>
             source
         };
 
-        let read = read_intel_log_file(chatlog.character_log.id, chatlog.file.path(), log_source.cursor)?;
+        let read = read_intel_log_file(chatlog.character_log, chatlog.file.path(), log_source.cursor)?;
         log_source.cursor = read.cursor;
         log.entries.extend(read.entries);
     }

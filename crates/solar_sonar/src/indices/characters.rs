@@ -6,14 +6,12 @@ pub struct CharacterIdx {
     /// key, from config
     alias: String,
     /// from eve
-    character_id: CharacterId,
-    /// from eve
     name: String,
 }
 
 impl CharacterIdx {
     pub fn alias(&self) -> &str { &self.alias }
-    pub fn character_id(&self) -> CharacterId { self.character_id }
+    pub fn character_id(&self) -> CharacterId { self.id as u32 }
     pub fn character_name(&self) -> &str { &self.name }
 }
 
@@ -37,12 +35,15 @@ pub struct CharacterIndex(Vec<CharacterIdx>);
 
 impl CharacterIndex {
     pub(crate) fn try_from_cfg(characters: &Vec<CharacterConfig>) -> SolarResult<Self> {
-        let inner = Self::new_inner_from(characters, |id, alias, character| CharacterIdx { 
-            id,
-            alias,
-            character_id: character.id,
-            name: character.name.clone(),
-        })?;
+    
+        let inner = Index::no_duplicate_data(characters, Self::NOUN)?
+            .into_iter()
+            .map(|(name, data)| CharacterIdx {
+                id: data.id as IndexId,
+                name,
+                alias: data.alias.clone(),
+            })
+            .collect::<Vec<_>>();
         
         Ok(Self(inner))
     }

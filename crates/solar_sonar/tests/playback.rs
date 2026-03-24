@@ -42,6 +42,7 @@ struct TestCfg {
     modes: &'static [&'static str],
     server: &'static TestServerCfg,
     client: &'static TestClientCfg,
+    logs: &'static [&'static TestLogCfg],
 }
 
 fn expand_path<P: AsRef<OsStr>>(path: P) -> PathBuf {
@@ -60,6 +61,7 @@ impl Into<sonar::Cfg> for TestCfg {
                     .map(|s| s.to_string())
                     .collect::<Vec<_>>()
             },
+            logs: vec![], //todo
             server: self.server.into(),
             client: self.client.into(),
         }
@@ -69,7 +71,7 @@ impl Into<sonar::Cfg> for TestCfg {
 struct TestCharacterCfg {
     alias: &'static str,
     id: u32,
-    intel_channels: &'static [&'static str],
+    name: &'static str,
 }
 
 impl Into<sonar::CharacterCfg> for &TestCharacterCfg {
@@ -77,9 +79,7 @@ impl Into<sonar::CharacterCfg> for &TestCharacterCfg {
         sonar::CharacterCfg {
             alias: self.alias.to_string(),
             id: self.id,
-            intel_channels: self.intel_channels.iter()
-                .map(|s| s.to_string())
-                .collect(),
+            name: self.name.to_string(),
        }
     }
 }
@@ -158,18 +158,21 @@ impl Into<sonar::TlsCfg> for &TestTlsCfg {
     }
 }
 
+pub struct TestLogCfg {
+    kind: sonar::LogKind,
+}
+
 const TEST_STANDARD_CONFIG: TestCfg = TestCfg {
     characters: &[
         TestCharacterCfg {
             alias: "test",
             id: 12345,
-            intel_channels: &[
-                "test.intel",
-            ],
+            name: "Test",
         },
     ],
     logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs",
     modes: &["stand", "crab", "attack"],
+    logs: &[],
     server: &TestServerCfg {
         default: Some("test"),
         serve: &[
@@ -193,13 +196,12 @@ const TEST_TLS_CLIENT_CONFIG: TestCfg = TestCfg {
         TestCharacterCfg {
             alias: "test",
             id: 12345,
-            intel_channels: &[
-                "test.intel",
-            ],
+            name: "Test",
         },
     ],
     logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs",
     modes: &["stand", "crab", "attack"],
+    logs: &[],
     server: &TestServerCfg {
         default: Some("test"),
         serve: &[
