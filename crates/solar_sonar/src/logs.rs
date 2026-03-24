@@ -326,7 +326,7 @@ fn make_datetime(date: &str, time: &str) -> Option<DateTime<Utc>> {
         .single()
 }
 
-pub(crate) fn read_intel_logs(run: &Running, logs: &mut Logs) -> SolarResult<()> {
+pub(crate) fn read_chat_logs(run: &Running, logs: &mut Logs) -> SolarResult<()> {
     let chat_logs_dir = run.cfg.logs_dir.join("Chatlogs");
     let watch_chrs = run.args.watch_characters(&run.cfg);
     let index = run.index();

@@ -86,7 +86,7 @@ pub(crate) trait IndexedInner<IDX: Idx>: Sized {
 #[allow(private_bounds)]
 pub trait Indexed<IDX: Idx>: IndexedInner<IDX> {
     fn get(&self, id: IndexId) -> SolarResult<&IDX> {
-        self.inner().get(id as usize)
+        self.inner().iter().find(|i| i.id() == id)
             .ok_or_else(|| SolarError::not_found(Self::NOUN, id))
     }
     

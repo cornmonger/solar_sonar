@@ -1,4 +1,5 @@
 use futures::future::BoxFuture;
+use tokio::time::sleep;
 
 use crate::*;
 
@@ -256,7 +257,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
     loop {
         let stamp = last_stamp;
         
-        let source: BoxFuture<SolarResult<Vec<LogEntry>>> = match source_kind {
+        let source: BoxFuture<Option<SolarResult<Vec<LogEntry>>>> = match source_kind {
             SourceKind::Logs => {
                 let run = &run;
                 let watch_channels = &watch_channels;
@@ -282,14 +283,14 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
                 Ok(_) => continue,
                 Err(_e) => break,
             },
-            result = source => match result {
+            Some(result) = source => match result {
                 Ok(activity) => activity,
                 Err(_) => break,
             },
-            _ = tokio::time::sleep(sleep_time) => continue,
+            _ = tokio::time::sleep(sleep_time) => vec![],
         };
-        
         for entry in activity {
+            dbg!(&entry);
             last_stamp = entry.timestamp;
             let matched_systems = entry.analysis.system_ids().iter()
                 .filter_map(|sys_id| watch_range.iter().find(|sys| &sys.id == sys_id))
@@ -337,48 +338,69 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
     Ok(())
 }
 
-async fn select_logs(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs) -> SolarResult<Vec<LogEntry>> {
-    read_intel_logs(&run, logs)?;
+async fn select_logs(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs) -> Option<SolarResult<Vec<LogEntry>>> {
+    let result = (|| {
+        read_chat_logs(&run, logs)?;
+        
+        let activity = watch_channels.iter()
+            .flat_map(|channel| logs.take_entries(channel))
+            .filter(|entry| entry.timestamp > stamp)
+            //.filter(|entry| !entry.analysis.system_ids().is_empty())
+            .collect::<Vec<_>>();
+            
+        match activity.is_empty() {
+            true => Ok(None),
+            false => Ok(Some(activity)),
+        }
+    })();
     
-    let activity = watch_channels.iter()
-        .flat_map(|channel| logs.take_entries(channel))
-        .filter(|entry| entry.timestamp > stamp)
-        .filter(|entry| !entry.analysis.system_ids().is_empty())
-        .collect::<Vec<_>>();
-    
-    Ok(activity)
+    result.transpose()
 }
 
-async fn select_replay(run: &Running, _watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile) -> SolarResult<Vec<LogEntry>> {
-    let character_log = log_file.to_character_log(run.index())?;
-    let read = read_intel_log_file(character_log, &log_file.path(), 0)?;
-    logs.push(&run, &log_file, read);
+async fn select_replay(run: &Running, _watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile) -> Option<SolarResult<Vec<LogEntry>>> {
+    let result = (|| {
+        let character_log = log_file.to_character_log(run.index())?;
+        let read = read_intel_log_file(character_log, &log_file.path(), 0)?;
+        logs.push(&run, &log_file, read);
+        
+        let activity = logs.take_entries(&character_log).into_iter()
+            .filter(|entry| entry.timestamp > stamp)
+            .filter(|entry| !entry.analysis.system_ids().is_empty())
+            .collect::<Vec<_>>();
+        
+        match activity.is_empty() {
+            true => Ok(None),
+            false => Ok(Some(activity)),
+        }
+    })();
     
-    let activity = logs.take_entries(&character_log).into_iter()
-        .filter(|entry| entry.timestamp > stamp)
-        .filter(|entry| !entry.analysis.system_ids().is_empty())
-        .collect::<Vec<_>>();
-    
-    Ok(activity)
+    result.transpose()
 }
 
-async fn select_client(stamp: Timestamp, tls_client: &mut Option<TlsClientHandle>) -> SolarResult<Vec<LogEntry>> {
-    let client = tls_client.as_mut().expect("exists");
-    let events = match client.recv().await {
-        Some(events) => events,
-        _ => return SolarError::err_msg("Client closed"),
-    };
+async fn select_client(stamp: Timestamp, tls_client: &mut Option<TlsClientHandle>) -> Option<SolarResult<Vec<LogEntry>>> {
+    let result = (async || {
+        let client = tls_client.as_mut().expect("exists");
+        let events = match client.recv().await {
+            Some(events) => events,
+            _ => return SolarError::err_msg("Client closed"),
+        };
+        
+        let activity = events.into_iter()
+            .filter_map(|event| match event {
+                DataEvent::LogEntry { entry, .. } => Some(entry),
+                _ => None,
+            })
+            .filter(|entry| entry.timestamp > stamp)
+            .filter(|entry| !entry.analysis.system_ids().is_empty())
+            .collect::<Vec<_>>();
+        
+        match activity.is_empty() {
+            true => Ok(None),
+            false => Ok(Some(activity)),
+        }
+    })().await;
     
-    let activity = events.into_iter()
-        .filter_map(|event| match event {
-            DataEvent::LogEntry { entry, .. } => Some(entry),
-            _ => None,
-        })
-        .filter(|entry| entry.timestamp > stamp)
-        .filter(|entry| !entry.analysis.system_ids().is_empty())
-        .collect::<Vec<_>>();
-    
-    Ok(activity)
+    result.transpose()
 }
 
 #[derive(Debug)]

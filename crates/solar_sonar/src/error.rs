@@ -27,14 +27,19 @@ pub enum SolarError {
     },
     NotFound { noun: ErrNoun, name: String },
     Duplicate { noun: ErrNoun, name: String },
+    #[snafu(display("Invalid option for {noun}: {input}"))]
     Enum { noun: ErrNoun, input: String },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, snafu::Snafu)]
 pub enum ErrNoun {
+    #[snafu(display("mode"))]
     Mode,
+    #[snafu(display("channel name"))]
     ChannelName,
+    #[snafu(display("log kind"))]
     LogKind,
+    #[snafu(display("ping kind"))]
     PingKind,
 }
 
