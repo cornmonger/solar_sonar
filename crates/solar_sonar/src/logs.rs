@@ -300,6 +300,18 @@ impl ChatLogFile {
         })
         .ok()
     }
+    
+    pub(crate) fn to_character_log(&self, index: &Index) -> SolarResult<CharacterLog> {
+        let channel_name = self.channel();
+        let character_id = self.character_id();
+        let log_kind = LogKind::from_log_name(channel_name);
+        let channel_name_id = match log_kind {
+            LogKind::Group => Some(index.chat_channels().find(channel_name)?.id()),
+            _ => None,
+        };
+        
+        Ok(CharacterLog::from_kind(log_kind, character_id, channel_name_id))
+    }
 }
 
 fn make_datetime(date: &str, time: &str) -> Option<DateTime<Utc>> {

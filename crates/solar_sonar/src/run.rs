@@ -268,7 +268,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
                 let watch_channels = &watch_channels;
                 let replay_log = replay_log.as_ref().expect("exists");
                 let logs = &mut logs;
-                Box::pin(async move { select_replay(&run, &watch_channels, stamp, logs, &replay_log, 1).await })
+                Box::pin(async move { select_replay(&run, &watch_channels, stamp, logs, &replay_log).await })
             },
             SourceKind::Client => {
                 let tls_client = &mut tls_client;
@@ -349,12 +349,12 @@ async fn select_logs(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: T
     Ok(activity)
 }
 
-async fn select_replay(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile, character_log: &CharacterLog) -> SolarResult<Vec<LogEntry>> {
+async fn select_replay(run: &Running, _watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile) -> SolarResult<Vec<LogEntry>> {
+    let character_log = log_file.to_character_log(run.index())?;
     let read = read_intel_log_file(character_log, &log_file.path(), 0)?;
     logs.push(&run, &log_file, read);
     
-    let activity = watch_channels.iter()
-        .flat_map(|channel| logs.take_entries(channel.id))
+    let activity = logs.take_entries(&character_log).into_iter()
         .filter(|entry| entry.timestamp > stamp)
         .filter(|entry| !entry.analysis.system_ids().is_empty())
         .collect::<Vec<_>>();
