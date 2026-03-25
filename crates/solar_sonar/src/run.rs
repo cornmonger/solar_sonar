@@ -12,7 +12,7 @@ pub async fn run() -> ExitCode {
     let Ok(CfgParam{config, mut index}) = handle_error(Cfg::read()) else {
         return ExitCode::FAILURE
     };
-    let Ok(args_param) = handle_error(Args::try_from_cli(cli, &config)) else {
+    let Ok(args_param) = handle_error(Args::try_from_cli(cli, &config, index)) else {
         return ExitCode::FAILURE
     };
 
@@ -20,6 +20,7 @@ pub async fn run() -> ExitCode {
     let arg_channel_ids;
     if let Some(log_names) = log_names {
         arg_channel_ids = log_names.iter()
+            .
             .map(|s| index.chat_channels().find(&s))
             .collect::<SolarResult<Vec<_>>>();
         if handle_error(index.chat_channels_mut().extend(args_log_names)).is_err() {

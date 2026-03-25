@@ -75,6 +75,10 @@ impl Args {
             vec![]
         };
         
+        let channel_names = index.chat_channels_mut();
+        for log_name in log_names {
+        }
+        
         
 
         Ok(ArgParam {
