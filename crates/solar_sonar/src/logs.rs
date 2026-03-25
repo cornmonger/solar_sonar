@@ -188,7 +188,7 @@ impl Logs {
     }
 
     pub(crate) fn push(&mut self, run: &Running, logfile: &ChatLogFile, read: LogRead) {
-        let channel_id = run.index().chat_channels().find(logfile.channel()).expect("chan");
+        //let channel_id = run.index().chat_channels().find(logfile.name()).expect("chan");
         if self.0.contains_key(&read.character_log) {
             let log = self.0.get_mut(&read.character_log).expect("exists");
             log.entries.extend(read.entries);
@@ -240,9 +240,24 @@ pub(crate) struct ChatLogFile {
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ChatLogFileParts<'a> {
-    pub(crate) channel: &'a str,
+    pub(crate) name: LogName<'a>,
     pub(crate) timestamp: Timestamp,
     pub(crate) character_id: CharacterId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LogName<'a> {
+    Game,
+    Chat(&'a str),
+}
+
+impl<'a> LogName<'a> {
+    pub(crate) fn channel_name(&self) -> Option<&'a str> {
+        match self {
+            Self::Game => None,
+            Self::Chat(name) => Some(name),
+        }
+    }
 }
 
 impl ChatLogFile {
@@ -250,8 +265,8 @@ impl ChatLogFile {
         &self.borrow_path()
     }
 
-    pub fn channel(&self) -> &str {
-        self.borrow_parts().channel
+    pub fn name(&self) -> &LogName<'_> {
+        &self.borrow_parts().name
     }
 
     pub fn character_id(&self) -> CharacterId {
@@ -262,7 +277,7 @@ impl ChatLogFile {
         &self.borrow_parts().timestamp
     }
 
-    pub fn from_path_buf(path: PathBuf) -> Option<Self> {
+    pub fn from_path_buf(path: PathBuf, dir_kind: LogDirKind) -> Option<Self> {
         const TXT: &'static str = "txt";
         const UNDERSCORE: char = '_';
 
@@ -281,8 +296,17 @@ impl ChatLogFile {
             let Some((file, time)) = file.rsplit_once(UNDERSCORE) else {
                 return Err(())
             };
-            let Some((channel, date)) = file.rsplit_once(UNDERSCORE) else {
-                return Err(())
+            let (name, date) = match dir_kind {
+                LogDirKind::Game => {
+                    (LogName::Game, file)
+                },
+                LogDirKind::Chat => {
+                    let Some((name, date)) = file.rsplit_once(UNDERSCORE) else {
+                        return Err(())
+                    };
+                    
+                    (LogName::Chat(name), date)
+                },
             };
             let Ok(character_id) = CharacterId::from_str(character_id) else {
                 return Err(())
@@ -293,7 +317,7 @@ impl ChatLogFile {
             let timestamp = Timestamp::from(datetime);
 
             Ok(ChatLogFileParts {
-                channel,
+                name,
                 timestamp,
                 character_id,
             })
@@ -302,11 +326,16 @@ impl ChatLogFile {
     }
     
     pub(crate) fn to_character_log(&self, index: &Index) -> SolarResult<CharacterLog> {
-        let channel_name = self.channel();
+        let log_name = self.name();
         let character_id = self.character_id();
-        let log_kind = LogKind::from_log_name(channel_name);
+        let log_kind = LogKind::from_log_file(&self);
         let channel_name_id = match log_kind {
-            LogKind::Group => Some(index.chat_channels().find(channel_name)?.id()),
+            LogKind::Group => {
+                let channel_name = log_name.channel_name()
+                    .ok_or_else(|| SolarError::not_found(ErrNoun::ChannelName, self.path().to_string_lossy()))?;
+                let channel_name_id = index.chat_channels().find(channel_name)?.id();
+                Some(channel_name_id)
+            }
             _ => None,
         };
         
@@ -326,8 +355,49 @@ fn make_datetime(date: &str, time: &str) -> Option<DateTime<Utc>> {
         .single()
 }
 
-pub(crate) fn read_chat_logs(run: &Running, logs: &mut Logs) -> SolarResult<()> {
-    let chat_logs_dir = run.cfg.logs_dir.join("Chatlogs");
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LogDirKind {
+    Game,
+    Chat,
+}
+
+impl LogDirKind {
+    const GAME_LOGS: &'static str = "Gamelogs";
+    const CHAT_LOGS: &'static str = "Chatlogs";
+    
+    pub(crate) fn dir_name(&self) -> &'static str {
+        match self {
+            Self::Game => Self::GAME_LOGS,
+            Self::Chat => Self::CHAT_LOGS,
+        }
+    }
+    
+    pub(crate) fn from_file_path(path: &Path) -> Option<Self> {
+        match path.parent() {
+            Some(dir) => match dir.file_name().and_then(|s| s.to_str()) {
+                Some(dir_name) => Self::from_dir_name(dir_name),
+                None => None,
+            },
+            None => None,
+        }
+    }
+    
+    pub(crate) fn from_dir_name(dir_name: &str) -> Option<Self> {
+        match dir_name {
+            Self::GAME_LOGS => Some(Self::Game),
+            Self::CHAT_LOGS => Some(Self::Chat),
+            _ => None,
+        }
+    }
+}
+
+pub(crate) fn read_logs(run: &Running, logs: &mut Logs) -> SolarResult<()> {
+    read_log_dir(run, logs, LogDirKind::Game)?;
+    Ok(())
+}
+
+pub(crate) fn read_log_dir(run: &Running, logs: &mut Logs, dir_kind: LogDirKind) -> SolarResult<()> {
+    let chat_logs_dir = run.cfg.logs_dir.join(dir_kind.dir_name());
     let watch_chrs = run.args.watch_characters(&run.cfg);
     let index = run.index();
 
@@ -336,7 +406,7 @@ pub(crate) fn read_chat_logs(run: &Running, logs: &mut Logs) -> SolarResult<()> 
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| {
             let path = entry.path();
-            let Some(file) = ChatLogFile::from_path_buf(path) else {
+            let Some(file) = ChatLogFile::from_path_buf(path, dir_kind) else {
                 return None
             };
 
@@ -350,13 +420,14 @@ pub(crate) fn read_chat_logs(run: &Running, logs: &mut Logs) -> SolarResult<()> 
                 return None
             };
 
-            let log_cfg = run.cfg.logs.iter()
+            let has_cfg = run.cfg.logs.iter()
                 .find(|log| {
                     log.kind == log_kind
                     && log.name == channel_name_id
                     && log.characters.contains(&character_id)
-                });
-            let Some(log_cfg) = log_cfg else {
+                })
+                .is_some();
+            if !has_cfg {
                 return None
             };
             
@@ -607,13 +678,13 @@ mod tests {
                 .single().unwrap()
                 .into();
             ChatLogFileParts {
-                channel: "our.intel",
+                name: LogName::Chat("our.intel"),
                 character_id: 12345678,
                 timestamp, 
             }
         }));
 
-        let actual = ChatLogFile::from_path_buf(PathBuf::from(FILENAME));
+        let actual = ChatLogFile::from_path_buf(PathBuf::from(FILENAME), LogDirKind::Chat);
         assert_eq!(expected, actual);
     }
 }

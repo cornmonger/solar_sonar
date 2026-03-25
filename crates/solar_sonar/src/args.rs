@@ -15,7 +15,7 @@ pub struct Args {
 #[derive(Debug)]
 pub struct ArgParam {
     pub args: Args,
-    pub chat_channels: Option<ChannelNameIndex>,
+    pub log_names: Option<Vec<LogNameString>>,
 }
 
 impl Args {
@@ -23,7 +23,7 @@ impl Args {
     pub const DEFAULT_AUDIO: bool = true;
     pub const DEFAULT_STDIO: bool = true;
     
-    pub(crate) fn try_from_cli(cli: Cli, cfg: &Config) -> SolarResult<ArgParam> {
+    pub(crate) fn try_from_cli(cli: Cli, cfg: &Config, index:  &mut Index) -> SolarResult<ArgParam> {
         if cli.connect.is_some() && cli.serve.is_some() {
             return SolarError::err_msg("Cannot both serve and connect");
         }
@@ -61,18 +61,25 @@ impl Args {
             replay_file,
         };
 
-        this.build()
+        this.build(index)
     }
 
-    pub fn build(self) -> SolarResult<ArgParam> {
-        let chat_channels = self.replay_file.as_ref().map(PathBuf::from)
-            .and_then(|f| ChatLogFile::from_path_buf(f))
-            .map(|f| ChannelNameIndex::try_new(vec![f.channel().to_string()]))
-            .transpose()?;
+    pub fn build(self, index: &mut Index) -> SolarResult<ArgParam> {
+        let log_names = if let Some(replay_file) = self.replay_file.as_ref().map(PathBuf::from) {
+            let dir_kind = LogDirKind::from_file_path(&replay_file)
+                .unwrap_or(LogDirKind::Chat);
+            let log_file = ChatLogFile::from_path_buf(replay_file, dir_kind)
+                .ok_or_else(|| SolarError::msg("Invalid replay log file"))?;
+            vec![LogNameString::from_log_file(log_file)?]
+        } else {
+            vec![]
+        };
+        
+        
 
         Ok(ArgParam {
             args: self,
-            chat_channels,
+            log_names,
         })
     }
     

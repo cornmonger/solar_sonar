@@ -16,11 +16,13 @@ pub async fn run() -> ExitCode {
         return ExitCode::FAILURE
     };
 
-    let ArgParam{args, chat_channels: args_chat_channels} = args_param;
+    let ArgParam{args, log_names} = args_param;
     let arg_channel_ids;
-    if let Some(args_chat_channels) = args_chat_channels {
-        arg_channel_ids = args_chat_channels.iter().map(|c| c.id).collect::<Vec<_>>();
-        if handle_error(index.chat_channels_mut().extend(args_chat_channels)).is_err() {
+    if let Some(log_names) = log_names {
+        arg_channel_ids = log_names.iter()
+            .map(|s| index.chat_channels().find(&s))
+            .collect::<SolarResult<Vec<_>>>();
+        if handle_error(index.chat_channels_mut().extend(args_log_names)).is_err() {
             return ExitCode::FAILURE;
         }
     } else {
@@ -96,7 +98,7 @@ impl SolarSonarHandle {
 pub fn start(arg: ArgParam, cfg: CfgParam) -> SolarResult<SolarSonarHandle> {
     handle_error(SolarSonar::init_once())?;
 
-    let ArgParam { args, chat_channels: args_chat_channels } = arg;
+    let ArgParam { args, log_names: args_chat_channels } = arg;
     let CfgParam { config, mut index } = cfg;
 
     let sonar_options = SonarOptions {
@@ -239,7 +241,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
     
     let (mut last_stamp, replay_log) = match &run.args.replay_file {
         Some(p) => {
-            let log = ChatLogFile::from_path_buf(p.to_path_buf())
+            let log = ChatLogFile::from_path_buf(p.to_path_buf(), LogDirKind::Chat)
                 .ok_or_else(|| SolarError::msg(format!("Invalid chat log: {}", log_path(p))))?;
 
             (log.timestamp().clone(), Some(log))
@@ -340,7 +342,7 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
 
 async fn select_logs(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs) -> Option<SolarResult<Vec<LogEntry>>> {
     let result = (|| {
-        read_chat_logs(&run, logs)?;
+        read_logs(&run, logs)?;
         
         let activity = watch_channels.iter()
             .flat_map(|channel| logs.take_entries(channel))
