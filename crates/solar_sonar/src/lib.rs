@@ -84,7 +84,7 @@ pub use self::{
             ping::*,
         },
     },
-    run::{run,start,SolarSonar},
+    run::{run_cli,start,SolarSonar},
 };
 
 pub(crate) use self::{

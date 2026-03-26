@@ -4,10 +4,9 @@ use std::str::FromStr;
 use crate::*;
 
 #[derive(Debug)]
-pub(crate) struct ConfiguredChatLog<'a> {
-    pub(crate) file: ChatLogFile,
+pub(crate) struct CharacterLogFile {
     pub(crate) character_log: CharacterLog,
-    pub(crate) character_cfg: &'a CharacterConfig,
+    pub(crate) file: ChatLogFile,
 }
 
 #[derive(Debug)]
@@ -393,12 +392,13 @@ impl LogDirKind {
 
 pub(crate) fn read_logs(run: &Running, logs: &mut Logs) -> SolarResult<()> {
     read_log_dir(run, logs, LogDirKind::Game)?;
+    read_log_dir(run, logs, LogDirKind::Chat)?;
     Ok(())
 }
 
 pub(crate) fn read_log_dir(run: &Running, logs: &mut Logs, dir_kind: LogDirKind) -> SolarResult<()> {
     let chat_logs_dir = run.cfg.logs_dir.join(dir_kind.dir_name());
-    let watch_chrs = run.args.watch_characters(&run.cfg);
+    let watch_logs = run.watch_logs();
     let index = run.index();
 
     let chatlogs = fs::read_dir(&chat_logs_dir)
@@ -410,28 +410,14 @@ pub(crate) fn read_log_dir(run: &Running, logs: &mut Logs, dir_kind: LogDirKind)
                 return None
             };
 
-            let character_id = file.character_id();
             let Ok(character_log) = file.to_character_log(&index) else {
                 return None
             };
-            let log_kind = character_log.to_kind();
-            let channel_name_id = character_log.channel_name_id();
-            let Some(character_cfg) = watch_chrs.iter().find(|chr| chr.id == character_id) else {
+            if !watch_logs.contains(&character_log) {
                 return None
-            };
+            }
 
-            let has_cfg = run.cfg.logs.iter()
-                .find(|log| {
-                    log.kind == log_kind
-                    && log.name == channel_name_id
-                    && log.characters.contains(&character_id)
-                })
-                .is_some();
-            if !has_cfg {
-                return None
-            };
-            
-            Some(ConfiguredChatLog { file, character_cfg, character_log })
+            Some(CharacterLogFile { file, character_log })
         })
         .into_group_map_by(|log| log.character_log)
         .into_iter()
@@ -445,7 +431,7 @@ pub(crate) fn read_log_dir(run: &Running, logs: &mut Logs, dir_kind: LogDirKind)
         let log = logs.get_mut(chatlog.character_log).expect("log exists");
         let log_source = {
             let source = log.sources
-                .entry(chatlog.character_cfg.id)
+                .entry(chatlog.character_log.character_id())
                 .or_insert(LogSource { file: chatlog.file.path().to_path_buf(), cursor: 0 });
 
             if source.file != chatlog.file.path() {

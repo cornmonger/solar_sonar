@@ -1,6 +1,6 @@
 use crate::*;
 
-pub async fn run() -> ExitCode {
+pub async fn run_cli() -> ExitCode {
     if handle_error(SolarSonar::init_once()).is_err() {
         return ExitCode::FAILURE;
     }
@@ -36,7 +36,7 @@ pub async fn run() -> ExitCode {
         return ExitCode::FAILURE;
     };
 
-    match handle_error(run_cli(running, sonar_io).await) {
+    match handle_error(run(running, sonar_io).await) {
         Ok(_) => ExitCode::SUCCESS,
         Err(_) => ExitCode::FAILURE,
     }
@@ -94,7 +94,7 @@ pub fn start(arg: ArgParam, cfg: CfgParam) -> SolarResult<SolarSonarHandle> {
 
     check_args(&args, &config)?;
     
-    let run = RunningParams {
+    let running = RunningParams {
         args,
         cfg: config,
         index,
@@ -102,12 +102,12 @@ pub fn start(arg: ArgParam, cfg: CfgParam) -> SolarResult<SolarSonarHandle> {
         io: sonar_options,
     };
     
-    let Startup { running, sonar_io } = handle_error(Running::startup(run))?;
+    let Startup { running, sonar_io } = handle_error(Running::startup(running))?;
     let rx = sonar_io.subscribe();
     
     let cancel = r::tokio::CancellationToken::new();
     let handle = tokio::task::spawn(async move {
-        handle_error(run_cli(running, sonar_io).await)
+        handle_error(run(running, sonar_io).await)
     });
     
     
@@ -134,7 +134,7 @@ fn handle_error<T>(result: SolarResult<T>) -> SolarResult<T> {
     }
 }
 
-async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
+async fn run(run: Running, mut io: SonarIO) -> SolarResult<()> {
     for asset in RemoteAssets::all() {
         let filepath = asset.filepath()?;
         if filepath.exists() { continue }
@@ -219,7 +219,9 @@ async fn run_cli(run: Running, mut io: SonarIO) -> SolarResult<()> {
     
     let (mut last_stamp, replay_log) = match &run.args.replay_file {
         Some(p) => {
-            let log = ChatLogFile::from_path_buf(p.to_path_buf(), LogDirKind::Chat)
+            let log_dir_kind = LogDirKind::from_file_path(p)
+                .ok_or_else(|| SolarError::msg(format!("Unable to determine log kind from dirname: {}", log_path(p))))?;
+            let log = ChatLogFile::from_path_buf(p.to_path_buf(), log_dir_kind)
                 .ok_or_else(|| SolarError::msg(format!("Invalid chat log: {}", log_path(p))))?;
 
             (log.timestamp().clone(), Some(log))
