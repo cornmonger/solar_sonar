@@ -221,7 +221,7 @@ async fn run(run: Running, mut io: SonarIO) -> SolarResult<()> {
         Some(p) => {
             let log_dir_kind = LogDirKind::from_file_path(p)
                 .ok_or_else(|| SolarError::msg(format!("Unable to determine log kind from dirname: {}", log_path(p))))?;
-            let log = ChatLogFile::from_path_buf(p.to_path_buf(), log_dir_kind)
+            let log = LogFile::from_path_buf(p.to_path_buf(), log_dir_kind)
                 .ok_or_else(|| SolarError::msg(format!("Invalid chat log: {}", log_path(p))))?;
 
             (log.timestamp().clone(), Some(log))
@@ -339,7 +339,7 @@ async fn select_logs(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: T
     result.transpose()
 }
 
-async fn select_replay(run: &Running, _watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs, log_file: &ChatLogFile) -> Option<SolarResult<Vec<LogEntry>>> {
+async fn select_replay(run: &Running, _watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs, log_file: &LogFile) -> Option<SolarResult<Vec<LogEntry>>> {
     let result = (|| {
         let character_log = log_file.to_character_log(run.index())?;
         let read = read_intel_log_file(character_log, &log_file.path(), 0)?;

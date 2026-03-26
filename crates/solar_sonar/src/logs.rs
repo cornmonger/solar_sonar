@@ -6,7 +6,7 @@ use crate::*;
 #[derive(Debug)]
 pub(crate) struct CharacterLogFile {
     pub(crate) character_log: CharacterLog,
-    pub(crate) file: ChatLogFile,
+    pub(crate) file: LogFile,
 }
 
 #[derive(Debug)]
@@ -186,7 +186,7 @@ impl Logs {
         self.0.get_mut(&character_log)
     }
 
-    pub(crate) fn push(&mut self, run: &Running, logfile: &ChatLogFile, read: LogRead) {
+    pub(crate) fn push(&mut self, run: &Running, logfile: &LogFile, read: LogRead) {
         //let channel_id = run.index().chat_channels().find(logfile.name()).expect("chan");
         if self.0.contains_key(&read.character_log) {
             let log = self.0.get_mut(&read.character_log).expect("exists");
@@ -230,7 +230,7 @@ impl Logs {
 
 #[ouroboros::self_referencing]
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct ChatLogFile {
+pub(crate) struct LogFile {
     pub(crate) path: PathBuf,
     #[borrows(path)]
     #[covariant]
@@ -259,7 +259,7 @@ impl<'a> LogName<'a> {
     }
 }
 
-impl ChatLogFile {
+impl LogFile {
     pub fn path(&self) -> &Path {
         &self.borrow_path()
     }
@@ -406,7 +406,7 @@ pub(crate) fn read_log_dir(run: &Running, logs: &mut Logs, dir_kind: LogDirKind)
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| {
             let path = entry.path();
-            let Some(file) = ChatLogFile::from_path_buf(path, dir_kind) else {
+            let Some(file) = LogFile::from_path_buf(path, dir_kind) else {
                 return None
             };
 
@@ -659,7 +659,7 @@ mod tests {
     #[test]
     fn test_log_filename() {
         const FILENAME: &'static str = "our.intel_20260212_035141_12345678.txt";
-        let expected = Some(ChatLogFile::new(PathBuf::from(FILENAME), |_| {
+        let expected = Some(LogFile::new(PathBuf::from(FILENAME), |_| {
             let timestamp = Utc.with_ymd_and_hms(2026, 2, 12, 3, 51, 41)
                 .single().unwrap()
                 .into();
@@ -670,7 +670,7 @@ mod tests {
             }
         }));
 
-        let actual = ChatLogFile::from_path_buf(PathBuf::from(FILENAME), LogDirKind::Chat);
+        let actual = LogFile::from_path_buf(PathBuf::from(FILENAME), LogDirKind::Chat);
         assert_eq!(expected, actual);
     }
 }

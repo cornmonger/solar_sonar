@@ -40,7 +40,7 @@ impl LogKind {
         }
     }
     
-    pub fn from_log_file(file: &ChatLogFile) -> Self {
+    pub fn from_log_file(file: &LogFile) -> Self {
         match file.name() {
             LogName::Game => Self::Game,
             LogName::Chat(name) => match *name {
@@ -67,7 +67,7 @@ pub(crate) enum NamedLog {
 }
 
 impl NamedLog {
-    pub(crate) fn from_log_file(file: ChatLogFile) -> SolarResult<Self> {
+    pub(crate) fn from_log_file(file: LogFile) -> SolarResult<Self> {
         let kind = LogKind::from_log_file(&file);
         let log_name = file.name();
         
