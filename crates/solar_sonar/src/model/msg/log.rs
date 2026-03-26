@@ -57,7 +57,7 @@ impl LogKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum LogNameString {
+pub(crate) enum NamedLog {
     Game,
     Local,
     Alliance,
@@ -66,7 +66,7 @@ pub(crate) enum LogNameString {
     Group(String),
 }
 
-impl LogNameString {
+impl NamedLog {
     pub(crate) fn from_log_file(file: ChatLogFile) -> SolarResult<Self> {
         let kind = LogKind::from_log_file(&file);
         let log_name = file.name();
@@ -85,8 +85,8 @@ impl LogNameString {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum IndexedLogName {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IndexedLog {
     Game,
     Local,
     Alliance,
@@ -158,6 +158,17 @@ impl CharacterLog {
             Self::Corporation {..} => LogKind::Corporation,
             Self::Fleet {..} => LogKind::Fleet,
             Self::Group {..} => LogKind::Group,
+        }
+    }
+    
+    pub fn from_indexed(indexed: IndexedLog, character_id: CharacterId) -> Self {
+        match indexed {
+            IndexedLog::Game => Self::Game { character_id },
+            IndexedLog::Local => Self::Local { character_id },
+            IndexedLog::Alliance => Self::Alliance { character_id },
+            IndexedLog::Corporation => Self::Corporation { character_id },
+            IndexedLog::Fleet => Self::Fleet { character_id },
+            IndexedLog::Group(channel_id) => Self::Group { character_id, channel_id },
         }
     }
 }

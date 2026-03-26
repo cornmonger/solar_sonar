@@ -145,7 +145,7 @@ pub(crate) use chrono::{NaiveDateTime, DateTime, Utc};
 pub(crate) use const_format::formatcp;
 pub(crate) use encoding_rs_io::DecodeReaderBytesBuilder;
 pub(crate) use encoding_rs::UTF_16LE;
-pub(crate) use futures::{StreamExt, SinkExt, future::join_all};
+pub(crate) use futures::{StreamExt, SinkExt, future::{join_all, BoxFuture}};
 pub(crate) use heck::ToSnakeCase;
 pub(crate) use itertools::Itertools;
 pub(crate) use xxhash_rust::xxh3::xxh3_64;
@@ -203,5 +203,4 @@ pub(crate) use tokio_rustls::{
         self, pki_types::pem::PemObject,
     },
 };
-
 

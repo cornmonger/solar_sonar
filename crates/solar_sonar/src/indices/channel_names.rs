@@ -36,6 +36,32 @@ impl ChannelNameIndex {
         
         Ok(Self(inner))
     }
+    
+    pub fn index_named(&mut self, named: NamedLog) -> IndexedLog {
+        match named {
+            NamedLog::Alliance => IndexedLog::Alliance,
+            NamedLog::Corporation => IndexedLog::Corporation,
+            NamedLog::Game => IndexedLog::Game,
+            NamedLog::Local => IndexedLog::Local,
+            NamedLog::Fleet => IndexedLog::Fleet,
+            NamedLog::Group(name) => {
+                let id = if let Ok(idx) = self.find(&name) {
+                    idx.id()
+                } else {
+                    self.0.push(ChannelNameIdx {
+                        id: Index::hash_id(&name),
+                        name,
+                    });
+                    
+                    self.0.get(self.0.len() - 1)
+                        .expect("pushed")
+                        .id()
+                };
+                
+                IndexedLog::Group(id)
+            },
+        }
+    }
 }
 
 impl IndexedInner<ChannelNameIdx> for ChannelNameIndex {

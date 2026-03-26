@@ -15,7 +15,7 @@ pub struct Args {
 #[derive(Debug)]
 pub struct ArgParam {
     pub args: Args,
-    pub log_names: Option<Vec<LogNameString>>,
+    pub indexed_logs: Vec<IndexedLog>,
 }
 
 impl Args {
@@ -65,25 +65,22 @@ impl Args {
     }
 
     pub fn build(self, index: &mut Index) -> SolarResult<ArgParam> {
-        let log_names = if let Some(replay_file) = self.replay_file.as_ref().map(PathBuf::from) {
+        let indexed_log_names = if let Some(replay_file) = self.replay_file.as_ref().map(PathBuf::from) {
             let dir_kind = LogDirKind::from_file_path(&replay_file)
                 .unwrap_or(LogDirKind::Chat);
             let log_file = ChatLogFile::from_path_buf(replay_file, dir_kind)
                 .ok_or_else(|| SolarError::msg("Invalid replay log file"))?;
-            vec![LogNameString::from_log_file(log_file)?]
+            let log_name = NamedLog::from_log_file(log_file)?;
+            let channel_names = index.chat_channels_mut();
+            let indexed_log_name = channel_names.index_named(log_name);
+            vec![indexed_log_name]
         } else {
             vec![]
         };
-        
-        let channel_names = index.chat_channels_mut();
-        for log_name in log_names {
-        }
-        
-        
 
         Ok(ArgParam {
             args: self,
-            log_names,
+            indexed_logs: indexed_log_names,
         })
     }
     

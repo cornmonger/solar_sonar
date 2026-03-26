@@ -1,6 +1,3 @@
-use futures::future::BoxFuture;
-use tokio::time::sleep;
-
 use crate::*;
 
 pub async fn run() -> ExitCode {
@@ -12,23 +9,11 @@ pub async fn run() -> ExitCode {
     let Ok(CfgParam{config, mut index}) = handle_error(Cfg::read()) else {
         return ExitCode::FAILURE
     };
-    let Ok(args_param) = handle_error(Args::try_from_cli(cli, &config, index)) else {
+    let Ok(args_param) = handle_error(Args::try_from_cli(cli, &config, &mut index)) else {
         return ExitCode::FAILURE
     };
 
-    let ArgParam{args, log_names} = args_param;
-    let arg_channel_ids;
-    if let Some(log_names) = log_names {
-        arg_channel_ids = log_names.iter()
-            .
-            .map(|s| index.chat_channels().find(&s))
-            .collect::<SolarResult<Vec<_>>>();
-        if handle_error(index.chat_channels_mut().extend(args_log_names)).is_err() {
-            return ExitCode::FAILURE;
-        }
-    } else {
-        arg_channel_ids = vec![];
-    }
+    let ArgParam{args, indexed_logs: arg_indexed_logs} = args_param;
     
     let sonar_options = SonarOptions {
         audio: args.audio,
@@ -43,7 +28,7 @@ pub async fn run() -> ExitCode {
         args,
         cfg: config,
         index,
-        arg_channel_ids,
+        arg_indexed_logs,
         io: sonar_options,
     };
     
@@ -99,21 +84,13 @@ impl SolarSonarHandle {
 pub fn start(arg: ArgParam, cfg: CfgParam) -> SolarResult<SolarSonarHandle> {
     handle_error(SolarSonar::init_once())?;
 
-    let ArgParam { args, log_names: args_chat_channels } = arg;
-    let CfgParam { config, mut index } = cfg;
+    let ArgParam { args, indexed_logs: arg_indexed_logs } = arg;
+    let CfgParam { config, index } = cfg;
 
     let sonar_options = SonarOptions {
         audio: args.audio,
         stdio: args.stdio,
     };
-    
-    let arg_channel_ids;
-    if let Some(args_chat_channels) = args_chat_channels {
-        arg_channel_ids = args_chat_channels.iter().map(|c| c.id).collect::<Vec<_>>();
-        index.chat_channels_mut().extend(args_chat_channels)?;
-    } else {
-        arg_channel_ids = vec![];
-    }
 
     check_args(&args, &config)?;
     
@@ -121,7 +98,7 @@ pub fn start(arg: ArgParam, cfg: CfgParam) -> SolarResult<SolarSonarHandle> {
         args,
         cfg: config,
         index,
-        arg_channel_ids,
+        arg_indexed_logs,
         io: sonar_options,
     };
     
@@ -409,7 +386,7 @@ async fn select_client(stamp: Timestamp, tls_client: &mut Option<TlsClientHandle
 #[derive(Debug)]
 pub(crate) struct RunningParams {
     pub(crate) args: Args,
-    pub(crate) arg_channel_ids: Vec<IndexId>,
+    pub(crate) arg_indexed_logs: Vec<IndexedLog>,
     pub(crate) index: Index,
     pub(crate) cfg: Config,
     pub(crate) io: SonarOptions,
@@ -418,7 +395,7 @@ pub(crate) struct RunningParams {
 #[derive(Debug)]
 pub(crate) struct Running {
     pub(crate) args: Args,
-    pub(crate) arg_channel_ids: Vec<IndexId>,
+    pub(crate) arg_log_names: Vec<IndexedLog>,
     pub(crate) index: Index,
     pub(crate) cfg: Config,
 }
@@ -434,7 +411,7 @@ impl Running {
         
         let running = Self {
             args: params.args,
-            arg_channel_ids: params.arg_channel_ids,
+            arg_log_names: params.arg_indexed_logs,
             index: params.index,
             cfg: params.cfg,
         };
@@ -443,25 +420,22 @@ impl Running {
     }
     
     pub(crate) fn watch_logs(&self) -> Vec<CharacterLog> {
-        let arg_channels = self.arg_channel_ids.iter()
-            .map(|id| self.index.chat_channels().get(*id).expect("exists"));
+        let chr_ids = self.args.watch_characters(&self.cfg).iter()
+            .map(|chr| chr.id)
+            .collect::<Vec<_>>();
         
-        self.args.watch_characters(&self.cfg).iter()
-            .filter_map(|chr| {
-                let logs = self.cfg.logs.iter()
-                    .filter_map(|log| match log.characters.contains(&chr.id) {
-                        true => Some(CharacterLog::from_kind(log.kind, chr.id, log.name)),
-                        false => None,
-                    })
-                    .collect::<Vec<_>>();
-                
-                match logs.is_empty() {
-                    true => None,
-                    false => Some(logs),
-                }
+        let logs_arg = self.arg_log_names.iter()
+            .zip(chr_ids.iter())
+            .map(|(indexed, chr_id)| CharacterLog::from_indexed(*indexed, *chr_id));
+        
+        self.cfg.logs.iter()
+            .zip(chr_ids.iter())
+            .filter_map(|(log_cfg, chr_id)| match log_cfg.characters.contains(&chr_id) {
+                true => Some(CharacterLog::from_kind(log_cfg.kind, *chr_id, log_cfg.name)),
+                false => None,
             })
-            .flatten()
-            //.chain(arg_channels) todo fix
+            .chain(logs_arg)
+            .dedup()
             .collect()
     }
     
