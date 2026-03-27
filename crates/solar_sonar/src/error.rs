@@ -39,8 +39,8 @@ pub enum ErrNoun {
     ChannelName,
     #[snafu(display("log kind"))]
     LogKind,
-    #[snafu(display("ping kind"))]
-    PingKind,
+    #[snafu(display("analysis"))]
+    AnalysisKind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

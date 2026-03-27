@@ -30,8 +30,12 @@ pub enum DataEvent {
         entry: LogEntry,
         in_range: bool,
         in_danger: bool,
+        dangerous: bool,
     },
     PingFortune,
+    PingChannel {
+        channel: CharacterLog,
+    },
     PingSystems {
         system_ids: Vec<SolarId>,
     },

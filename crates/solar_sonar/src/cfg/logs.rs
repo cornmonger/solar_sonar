@@ -11,7 +11,7 @@ pub struct LogCfg {
     pub kind: String,
     pub modes: Vec<String>,
     pub characters: Vec<String>,
-    pub pings: Vec<String>,
+    pub analysis: Vec<String>,
     pub name: Option<String>,
 }
 
@@ -39,7 +39,7 @@ impl LogConfig {
         let characters = cfg.characters.into_iter()
             .map(|c| character_index.find(&c).map(|idx| idx.character_id()))
             .collect::<SolarResult<Vec<_>>>()?;
-        let pings = cfg.pings.into_iter()
+        let pings = cfg.analysis.into_iter()
             .map(|p| AnalysisKind::try_from_input(&p))
             .collect::<SolarResult<Vec<_>>>()?;
         

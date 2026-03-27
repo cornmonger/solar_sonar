@@ -278,18 +278,23 @@ async fn run(run: Running, mut io: SonarIO) -> SolarResult<()> {
                 .collect::<Vec<_>>();
 
             let in_range = !matched_systems.is_empty();
-            let in_danger = entry.analysis.in_danger();
+            let dangerous = entry.analysis.dangerous();
+            let dangerous_callout = entry.analysis.dangerous_callout();
+            let in_danger = dangerous && (in_range || dangerous_callout);
+            let channel = entry.character_log; // todo: copy only when needed
             
-            io.broadcast(DataEvent::LogEntry { entry: entry.clone(), in_range, in_danger })?;
-
-            if !in_range {
-                continue;
-            }
+            io.broadcast(DataEvent::LogEntry { entry, in_range, in_danger, dangerous })?;
 
             if in_danger {
-                io.broadcast(DataEvent::PingSystems {
-                    system_ids: matched_systems.iter().map(|sys| sys.id).collect()
-                })?;
+                if in_range {
+                    io.broadcast(DataEvent::PingSystems {
+                        system_ids: matched_systems.iter().map(|sys| sys.id).collect()
+                    })?;
+                } else if dangerous_callout {
+                    io.broadcast(DataEvent::PingChannel {
+                        channel, 
+                    })?;
+                } 
             }
         }
 

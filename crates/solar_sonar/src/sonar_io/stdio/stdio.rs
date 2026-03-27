@@ -48,10 +48,11 @@ impl SonarListener for SonarStdio {
                     println!("{INFO} please distribute to clients: {MAGENTA}~/.config/solar_sonar/certs/authority_server.pem{CLR}");
                 }
             },
-            DataEvent::LogEntry { entry, in_range, in_danger } => {
-                println!("{}", entry.display_ansi(*in_range, *in_danger));
+            DataEvent::LogEntry { entry, in_range, in_danger, dangerous } => {
+                println!("{}", entry.display_ansi(run.index(), *in_range, *in_danger, *dangerous));
             },
             DataEvent::PingFortune => {},
+            DataEvent::PingChannel {..} => {},
             DataEvent::PingSystems { .. } => {},
             DataEvent::Connecting { to } => {
                 println!("{INFO} connecting to {MAGENTA}{to}{CLR}");

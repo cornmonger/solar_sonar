@@ -10,8 +10,8 @@ pub struct IntelAnalysis {
     pub keywords: Vec<IntelKeyword>,
 }
 
-impl IntelAnalysis {
-    pub fn in_danger(&self) -> bool {
+impl Analysis for IntelAnalysis {
+    fn dangerous(&self) -> bool {
         if self.systems.is_empty() {
             return false;
         }
@@ -23,8 +23,10 @@ impl IntelAnalysis {
             })
             .unwrap_or_else(|| true)
     }
-    
-    pub fn system_ids(&self) -> &Vec<SolarId> {
+}
+
+impl SystemContextAnalysis for IntelAnalysis {
+    fn system_ids(&self) -> &Vec<SolarId> {
        &self.systems
     }
 }
@@ -40,8 +42,8 @@ pub enum IntelKeyword {
 }
 
 impl IntelKeyword {
-    pub fn matches(s: &str) -> Option<Self> {
-        match s {
+    pub fn matches(word: &str) -> Option<Self> {
+        match word {
             "CLEAR" | "CLR" => Some(Self::Clear),
             "NV" => Some(Self::NoVisual),
             "STATUS" | "STATUS?" | "CLR?" | "CLEAR?" => Some(Self::Status),
@@ -62,8 +64,8 @@ impl IntelKeyword {
 
 
 pub(crate) struct IntelAnalyzer;
-impl IntelAnalyzer {
-    pub(crate) fn analyze(&self, content: &str) -> IntelAnalysis {
+impl Analyzer<IntelAnalysis> for IntelAnalyzer {
+    fn analyze(self, content: &str) -> IntelAnalysis {
         let mut keywords = vec![];
         let mut systems = vec![];
         let words = content.split_whitespace();

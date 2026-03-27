@@ -93,38 +93,6 @@ impl ChatAuthor {
 
 impl AsRef<str> for ChatAuthor { fn as_ref(&self) -> &str { self.as_str() } }
 
-#[derive(
-    Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
-    bitcode::Encode, bitcode::Decode,
-)]
-pub struct LogAnalysis {
-    pub(crate) intel: Option<IntelAnalysis>,
-}
-
-impl LogAnalysis {
-    pub fn intel(&self) -> Option<&IntelAnalysis> {
-        self.intel.as_ref()
-    }
-    
-    pub fn system_ids(&self) -> &Vec<SolarId> {
-        static EMPTY: Vec<SolarId> = vec![];
-        
-        if let Some(intel) = &self.intel {
-            intel.system_ids()
-        } else {
-            &EMPTY
-        }
-    }
-    
-    pub fn in_danger(&self) -> bool {
-        if let Some(intel) = &self.intel {
-            intel.in_danger()
-        } else {
-            false
-        }
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct Logs(HashMap<CharacterLog, Log>);
 
@@ -471,9 +439,13 @@ pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<AnalysisK
         let intel = if analyze.contains(&AnalysisKind::Intel) {
             Some(IntelAnalyzer.analyze(&content))
         } else { None };
+        let callout = if analyze.contains(&AnalysisKind::Callout) {
+            Some(CalloutAnalyzer.analyze(&content))
+        } else { None };
         
         let analysis = LogAnalysis {
             intel,
+            callout,
         };
 
         let timestamp = datetime.into();
@@ -493,125 +465,14 @@ pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<AnalysisK
 }
 
 impl LogEntry {
-    pub fn display_ansi(&self, in_range: bool, danger: bool) -> LogEntryAnsi<'_> {
-        LogEntryAnsi { entry: self, in_range, in_danger: danger }
-    }
-}
-
-pub struct LogEntryAnsi<'a> {
-    pub(crate) entry: &'a LogEntry,
-    pub(crate) in_range: bool,
-    pub(crate) in_danger: bool
-}
-
-pub struct LogEntryAnsiTheme<'a> {
-    pub stamp_fg: Cow<'a, str>,
-    pub author_fg: Cow<'a, str>,
-    pub system_fg: Cow<'a, str>,
-    pub content_fg: Cow<'a, str>,
-}
-
-impl<'a> LogEntryAnsiTheme<'a> {
-    const IN_RANGE_AND_DANGER: Self = Self {
-        stamp_fg: Cow::Borrowed(WHITE_ON_RED),
-        author_fg: Cow::Borrowed(RED),
-        system_fg: Cow::Borrowed(YELLOW),
-        content_fg: Cow::Borrowed(RED),
-    };
-    const IN_RANGE_NO_DANGER: Self = Self {
-        stamp_fg: Cow::Borrowed(WHITE_ON_ORANGE),
-        author_fg: Cow::Borrowed(ORANGE),
-        system_fg: Cow::Borrowed(YELLOW),
-        content_fg: Cow::Borrowed(ORANGE),
-    };
-    const DEFAULT: Self = Self {
-        stamp_fg: Cow::Borrowed(WHITE),
-        author_fg: Cow::Borrowed(GRAY),
-        system_fg: Cow::Borrowed(BRIGHT_BLUE),
-        content_fg: Cow::Borrowed(WHITE),
-    };
-
-    pub fn from_entry<'b, 'c>(ansi: &'b LogEntryAnsi) -> &'c Self {
-        match (ansi.in_range, ansi.in_danger) {
-            (true, true) => &Self::IN_RANGE_AND_DANGER,
-            (true, false) => &Self::IN_RANGE_NO_DANGER,
-            (false, _) => &Self::DEFAULT,
+    pub fn display_ansi<'this,'run:'this>(&'this self, index: &'run Index, in_range: bool, in_danger: bool, dangerous: bool) -> LogEntryAnsi<'this,'run> {
+        LogEntryAnsi {
+            entry: self,
+            index,
+            in_range,
+            in_danger,
+            dangerous,
         }
-    }
-}
-
-
-impl<'a> std::fmt::Display for LogEntryAnsi<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let LogEntryAnsiTheme { stamp_fg, author_fg, system_fg, content_fg }
-            = LogEntryAnsiTheme::from_entry(self);
-        
-        let stamp = self.entry.timestamp.to_datetime().format("%m-%d %H:%M");
-        let author = format!("{:<37}", self.entry.author.as_str());
-        let sys_names = self.entry.analysis.system_ids().iter()
-            .map(|id| STAR_MAP.system(id).name)
-            .collect::<Vec<_>>();
-
-        let mut words = self.entry.content.split_whitespace()
-            .map(|w| {
-                let up = w.trim_end_matches('*').to_uppercase();
-                if sys_names.contains(&up.as_str()) {
-                    Phrase::System(Cow::Owned(up))
-                } else {
-                    Phrase::text(w)
-                }
-            })
-            .collect::<Vec<_>>();
-
-        // place system in the beginning, as god intended
-        let sys_word = if self.entry.analysis.system_ids().len() == 1 {
-            words.iter()
-                .position(|w| w.is_system())
-                .and_then(|pos| Some(format!("{system_fg}{} {CLR}", words.remove(pos))))
-        } else {
-            None
-        }.unwrap_or_default();
-
-        let content = words.into_iter()
-            .map(|w| match (w, self.in_range) {
-                (Phrase::System(s), _) => Cow::Owned(format!("{system_fg}{s}{CLR}")),
-                (phrase, _) => phrase.take(),
-            })
-            .join(" ");
-
-        let out = format!("{stamp_fg}{stamp}{CLR} {author_fg}{author}{CLR} {sys_word}{content_fg}{content}{CLR}");
-        f.write_str(&out)
-    }
-}
-
-enum Phrase<'a> {
-    #[allow(dead_code)]
-    Keyword(Cow<'a, str>),
-    System(Cow<'a, str>),
-    Text(Cow<'a, str>),
-}
-
-impl<'a> Phrase<'a> {
-    #[allow(dead_code)]
-    fn keyword(s: &'a str) -> Self { Self::Keyword(Cow::Borrowed(s)) }
-    #[allow(dead_code)]
-    fn system(s: &'a str) -> Self { Self::System(Cow::Borrowed(s)) }
-    fn text(s: &'a str) -> Self { Self::Text(Cow::Borrowed(s)) }
-
-    fn as_str(&'a self) -> &'a str {
-        match self { Self::Keyword(s) | Self::System(s) | Self::Text(s) => s }
-    }
-
-    fn take(self) -> Cow<'a, str> {
-        match self { Self::Keyword(s) | Self::System(s) | Self::Text(s) => s }
-    }
-
-    fn is_system(&self) -> bool { matches!(self, Self::System(_)) }
-}
-
-impl<'a> std::fmt::Display for Phrase<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
     }
 }
 

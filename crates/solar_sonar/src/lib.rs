@@ -48,7 +48,10 @@ pub(crate) mod map {
 pub(crate) mod run;
 pub(crate) mod sonar_io {
     pub(crate) mod sonar;
-    pub(crate) mod stdio;
+    pub(crate) mod stdio {
+        pub(crate) mod stdio;
+        pub(crate) mod ansi;
+    }
     pub(crate) mod audio;
 }
 pub(crate) mod stdio;
@@ -113,7 +116,10 @@ pub(crate) use self::{
     sonar_io::{
         audio::*,
         sonar::*,
-        stdio::*,
+        stdio::{
+            ansi::*,
+            stdio::*,
+        },
     },
     stdio::*,
     tls::{

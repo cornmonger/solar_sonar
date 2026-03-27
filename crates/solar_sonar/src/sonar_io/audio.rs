@@ -1,5 +1,4 @@
 use crate::*;
-
 #[derive(Debug)]
 pub(crate) struct SonarAudio {
     play_tx: r::tokio::mpsc::UnboundedSender<DataEvent>
@@ -17,6 +16,7 @@ impl SonarAudio {
             
             while let Some(play) = play_rx.blocking_recv() {
                 let result = match play {
+                    DataEvent::PingChannel { channel } => on_ping_channel(&audible, channel),
                     DataEvent::PingFortune => on_ping_fortune(&audible),
                     DataEvent::PingSystems { system_ids } => on_ping_systems(&audible, system_ids),
                     _ => Ok(()),
@@ -37,6 +37,10 @@ impl SonarListener for SonarAudio {
     
     async fn on_event(&self, _run: &Running, event: &DataEvent) -> SolarResult<()> {
         match event {
+            DataEvent::PingChannel { channel } => {
+                self.play_tx.send(DataEvent::PingChannel { channel: channel.clone() })
+                    .map_err(|_| SolarError::msg("closed"))
+            },
             DataEvent::PingFortune => {
                 self.play_tx.send(DataEvent::PingFortune)
                     .map_err(|_| SolarError::msg("closed"))
@@ -61,4 +65,9 @@ fn on_ping_systems(audible: &Audible, system_ids: Vec<SolarId>) -> SolarResult<(
         .collect::<Vec<_>>();
     
     audible.play_ping_systems(names)
+}
+
+fn on_ping_channel(audible: &Audible, channel: CharacterLog) -> SolarResult<()> {
+    let word = channel.to_kind().pronounce();
+    audible.play_ping(vec![word])
 }

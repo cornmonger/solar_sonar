@@ -65,6 +65,17 @@ impl LogKind {
             },
         }
     }
+    
+    pub fn pronounce(&self) -> &'static str {
+        match self {
+            Self::Game {..} => "Game",
+            Self::Local {..} => "Local",
+            Self::Alliance {..} => "Alliance",
+            Self::Corporation {..} => "Corp",
+            Self::Fleet {..} => "Fleet",
+            Self::Group {..} => "Chat",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
