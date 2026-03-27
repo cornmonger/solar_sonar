@@ -5,18 +5,18 @@ use crate::*;
     serde::Serialize, serde::Deserialize,
     bitcode::Encode, bitcode::Decode
 )]
-pub enum PingKind {
+pub enum AnalysisKind {
+    Callout,
     Combat,
-    Danger,
     Intel,
     Message,
 }
 
-impl PingKind {
+impl AnalysisKind {
     pub fn try_from_input(s: &str) -> SolarResult<Self> {
         match s.to_lowercase().as_str() {
+            "callout" => Ok(Self::Callout),
             "combat" => Ok(Self::Combat),
-            "danger" => Ok(Self::Danger),
             "intel" => Ok(Self::Intel),
             "message" => Ok(Self::Message),
             _ => SolarError::err_enum(ErrNoun::PingKind, s), 

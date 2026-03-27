@@ -2,38 +2,28 @@
 # Log file configuration 
 
 ## Modes
+# The user-defined context for a configuration profile.
+# Defined in ~/.config/solar_sonar/settings.toml
 # 
 ## Kind
-# - alliance (chat::alliance)
-# - group (chat::group)
-# - corp (chat::corporation)
-# - fleet (chat::fleet)
+# - alliance
+# - corp
+# - fleet
+# - group
 # - game 
-# - local (chat::local)
+# - local
 # 
-## Pings
-# Employs parsers AND audible pings for them.  
-# Certain parsers run regardless, depending on log kind. 
-### combat
-# - game: Combat events directed at or by your character.
-### danger
-# - game: Any combat is initiated on grid
-# - chat: Call-outs such as "neut", "enemy" or "nme", "danger" or "dgr", etc.
-### intel
-#  Identifies the system as well as well-known keywords. Audible if within
-#  the range specified at runtime. Keywords such as "status" or "clr"
-#  flag the content as non-dangerous.
+## Analysis 
+# Employs parsers and audible pings for them.  
+# Certain analyzers run regardless, depending on log kind. 
 # 
-#  - chat: entries in the form of:
-#    - SYSTEM <content>
-#    - SYSTEM <keyword>
-#    - SYSTEM <keyword> <content>
-#    - identifies when a single SYSTEM is placed somewhere else in the text
-#    - identifies multiple SYSTEM referenced in text
-### message:
-#   - chat: text prefixed with your character's name
+# - combat: Incoming attacks
+# - callout: Chat messages indicating danger
+# - intel: Structured intel broadcats ("<SYSTEM> [keyword] <content>")
+# - message: Messages directed at you
+# 
 ## Name
-# For group chat channels only: The name of the channel.
+# The name of the chat channel. Applicable to 'group' kind only
 
 [[log]]
 kind = "group"
@@ -46,7 +36,7 @@ pings = ["intel"]
 kind = "fleet"
 modes = ["crab"]
 characters = ["me"]
-pings = ["danger", "message"]
+pings = ["callout", "message"]
 
 [[log]]
 kind = "fleet"
@@ -55,7 +45,7 @@ characters = ["me"]
 pings = ["combat", "message"]
 
 [[log]]
-kind = "system"
+kind = "game"
 modes = ["crab"]
 characters = ["me"]
-pings = ["danger"]
+pings = ["callout"]

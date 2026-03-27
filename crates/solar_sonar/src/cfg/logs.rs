@@ -20,7 +20,7 @@ pub struct LogConfig {
     pub indexed: IndexedLog,
     pub modes: Vec<IndexId>,
     pub characters: Vec<CharacterId>,
-    pub pings: Vec<PingKind>,
+    pub analysis: Vec<AnalysisKind>,
 }
 
 impl CfgToml for LogsCfg {
@@ -40,9 +40,9 @@ impl LogConfig {
             .map(|c| character_index.find(&c).map(|idx| idx.character_id()))
             .collect::<SolarResult<Vec<_>>>()?;
         let pings = cfg.pings.into_iter()
-            .map(|p| PingKind::try_from_input(&p))
+            .map(|p| AnalysisKind::try_from_input(&p))
             .collect::<SolarResult<Vec<_>>>()?;
         
-        Ok(Self { indexed, modes, characters, pings })
+        Ok(Self { indexed, modes, characters, analysis: pings })
     }
 }

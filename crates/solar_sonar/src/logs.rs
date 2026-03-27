@@ -98,11 +98,11 @@ impl AsRef<str> for ChatAuthor { fn as_ref(&self) -> &str { self.as_str() } }
     bitcode::Encode, bitcode::Decode,
 )]
 pub struct LogAnalysis {
-    pub(crate) intel: Option<IntelLogAnalysis>,
+    pub(crate) intel: Option<IntelAnalysis>,
 }
 
 impl LogAnalysis {
-    pub fn intel(&self) -> Option<&IntelLogAnalysis> {
+    pub fn intel(&self) -> Option<&IntelAnalysis> {
         self.intel.as_ref()
     }
     
@@ -121,66 +121,6 @@ impl LogAnalysis {
             intel.in_danger()
         } else {
             false
-        }
-    }
-}
-
-#[derive(
-    Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
-    bitcode::Encode, bitcode::Decode,
-)]
-pub struct IntelLogAnalysis {
-    pub ambiguous: bool,
-    pub systems: Vec<SolarId>,
-    pub keywords: Vec<LogKeyword>,
-}
-
-impl IntelLogAnalysis {
-    pub fn in_danger(&self) -> bool {
-        if self.systems.is_empty() {
-            return false;
-        }
-
-        self.keywords.iter()
-            .fold(None, |danger, word| match danger {
-                None => Some(word.danger(self.ambiguous)),
-                Some(last) => Some(last || word.danger(self.ambiguous)),
-            })
-            .unwrap_or_else(|| true)
-    }
-    
-    pub fn system_ids(&self) -> &Vec<SolarId> {
-       &self.systems
-    }
-}
-
-#[derive(
-    Debug, Clone, Copy, PartialEq, Hash, serde::Serialize, serde::Deserialize,
-    bitcode::Encode, bitcode::Decode,
-)]
-pub enum LogKeyword {
-    Clear,
-    NoVisual,
-    Status,
-}
-
-impl LogKeyword {
-    pub fn matches(s: &str) -> Option<Self> {
-        match s {
-            "CLEAR" | "CLR" => Some(Self::Clear),
-            "NV" => Some(Self::NoVisual),
-            "STATUS" | "STATUS?" | "CLR?" | "CLEAR?" => Some(Self::Status),
-            _ => None
-        }
-    }
-
-    pub fn danger(&self, has_unknown: bool) -> bool {
-        match (self, has_unknown) {
-            (Self::Clear, false) => false,
-            (Self::Clear, true) => true,
-            (Self::NoVisual, _) => true,
-            (Self::Status, false) => false,
-            (Self::Status, true) => true,
         }
     }
 }
@@ -456,7 +396,7 @@ pub(crate) fn read_log_dir(run: &Running, watch_logs: &Vec<CharacterLog>, logs: 
             source
         };
 
-        let analyze = &run.cfg.find_character_log(&log_file.character_log)?.pings;
+        let analyze = &run.cfg.find_character_log(&log_file.character_log)?.analysis;
         let read = read_log_file(log_file.character_log, &analyze, log_file.file.path(), log_source.cursor)?;
         log_source.cursor = read.cursor;
         log.entries.extend(read.entries);
@@ -472,7 +412,7 @@ pub(crate) struct LogRead {
     pub(crate) entries: Vec<LogEntry>,
 }
 
-pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<PingKind>, filepath: &Path, mut cursor: u64) -> SolarResult<LogRead> {
+pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<AnalysisKind>, filepath: &Path, mut cursor: u64) -> SolarResult<LogRead> {
     let is_utf8 = !character_log.is_chat();
     let mut entries: Vec<LogEntry> = vec![];
 
@@ -528,26 +468,8 @@ pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<PingKind>
         };
 
         
-        let intel = if analyze.contains(&PingKind::Intel) {
-            let mut keywords = vec![];
-            let mut systems = vec![];
-            let words = content.split_whitespace();
-            let mut num_words = 0;
-            for word in words {
-                num_words += 1;
-                let word = word.trim_end_matches('*').to_uppercase();
-                if let Some(keyword) = LogKeyword::matches(&word) {
-                    keywords.push(keyword);
-                } else if let Some(system) = STAR_MAP.get_system_named(&word) {
-                    systems.push(system.id)
-                }
-            }
-    
-            Some(IntelLogAnalysis {
-                ambiguous: num_words > (systems.len() + keywords.len()),
-                systems,
-                keywords,
-            })
+        let intel = if analyze.contains(&AnalysisKind::Intel) {
+            Some(IntelAnalyzer.analyze(&content))
         } else { None };
         
         let analysis = LogAnalysis {

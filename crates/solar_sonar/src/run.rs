@@ -341,7 +341,7 @@ async fn select_logs(run: &Running, watch_logs: &Vec<CharacterLog>, stamp: Times
 async fn select_replay(run: &Running, stamp: Timestamp, logs: &mut Logs, log_file: &LogFile) -> Option<SolarResult<Vec<LogEntry>>> {
     let result = (|| {
         let character_log = log_file.to_character_log(run.index())?;
-        let analyze = &run.cfg.find_character_log(&character_log)?.pings;
+        let analyze = &run.cfg.find_character_log(&character_log)?.analysis;
         let read = read_log_file(character_log, analyze, &log_file.path(), 0)?;
         logs.push(&log_file, read);
         

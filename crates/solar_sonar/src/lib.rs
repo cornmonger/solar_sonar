@@ -1,3 +1,10 @@
+pub(crate) mod analysis {
+    pub(crate) mod analyzer;
+    pub(crate) mod intel;
+    pub(crate) mod callout;
+    pub(crate) mod combat;
+    pub(crate) mod message;
+}
 pub(crate) mod args;
 pub(crate) mod assets;
 pub(crate) mod audio;
@@ -27,7 +34,7 @@ pub(crate) mod model {
     pub(crate) mod msg {
         pub(crate) mod event;
         pub(crate) mod log;
-        pub(crate) mod ping;
+        pub(crate) mod analysis;
     }
     pub(crate) mod eve {
         pub(crate) mod star_map;
@@ -81,13 +88,20 @@ pub use self::{
         msg::{
             event::*,
             log::*,
-            ping::*,
+            analysis::*,
         },
     },
     run::{run_cli,start,SolarSonar},
 };
 
 pub(crate) use self::{
+    analysis::{
+        analyzer::*,
+        callout::*,
+        combat::*,
+        intel::*,
+        message::*,
+    },
     assets::*,
     error::*,
     cli::*,
