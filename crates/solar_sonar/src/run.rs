@@ -248,10 +248,9 @@ async fn run(run: Running, mut io: SonarIO) -> SolarResult<()> {
             },
             SourceKind::Replay => {
                 let run = &run;
-                let watch_channels = &watch_channels;
                 let replay_log = replay_log.as_ref().expect("exists");
                 let logs = &mut logs;
-                Box::pin(async move { select_replay(&run, &watch_channels, stamp, logs, &replay_log).await })
+                Box::pin(async move { select_replay(&run, stamp, logs, &replay_log).await })
             },
             SourceKind::Client => {
                 let tls_client = &mut tls_client;
@@ -320,11 +319,11 @@ async fn run(run: Running, mut io: SonarIO) -> SolarResult<()> {
     Ok(())
 }
 
-async fn select_logs(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs) -> Option<SolarResult<Vec<LogEntry>>> {
+async fn select_logs(run: &Running, watch_logs: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs) -> Option<SolarResult<Vec<LogEntry>>> {
     let result = (|| {
-        read_logs(&run, logs)?;
+        read_logs(&run, watch_logs, logs)?;
         
-        let activity = watch_channels.iter()
+        let activity = watch_logs.iter()
             .flat_map(|channel| logs.take_entries(channel))
             .filter(|entry| entry.timestamp > stamp)
             //.filter(|entry| !entry.analysis.system_ids().is_empty())
@@ -339,11 +338,12 @@ async fn select_logs(run: &Running, watch_channels: &Vec<CharacterLog>, stamp: T
     result.transpose()
 }
 
-async fn select_replay(run: &Running, _watch_channels: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs, log_file: &LogFile) -> Option<SolarResult<Vec<LogEntry>>> {
+async fn select_replay(run: &Running, stamp: Timestamp, logs: &mut Logs, log_file: &LogFile) -> Option<SolarResult<Vec<LogEntry>>> {
     let result = (|| {
         let character_log = log_file.to_character_log(run.index())?;
-        let read = read_intel_log_file(character_log, &log_file.path(), 0)?;
-        logs.push(&run, &log_file, read);
+        let analyze = &run.cfg.find_character_log(&character_log)?.pings;
+        let read = read_log_file(character_log, analyze, &log_file.path(), 0)?;
+        logs.push(&log_file, read);
         
         let activity = logs.take_entries(&character_log).into_iter()
             .filter(|entry| entry.timestamp > stamp)
@@ -397,7 +397,7 @@ pub(crate) struct RunningParams {
 #[derive(Debug)]
 pub(crate) struct Running {
     pub(crate) args: Args,
-    pub(crate) arg_log_names: Vec<IndexedLog>,
+    pub(crate) arg_indexed_logs: Vec<IndexedLog>,
     pub(crate) index: Index,
     pub(crate) cfg: Config,
 }
@@ -413,7 +413,7 @@ impl Running {
         
         let running = Self {
             args: params.args,
-            arg_log_names: params.arg_indexed_logs,
+            arg_indexed_logs: params.arg_indexed_logs,
             index: params.index,
             cfg: params.cfg,
         };
@@ -422,23 +422,36 @@ impl Running {
     }
     
     pub(crate) fn watch_logs(&self) -> Vec<CharacterLog> {
-        let chr_ids = self.args.watch_characters(&self.cfg).iter()
+        let watch_char_ids = self.args.watch_characters(&self.cfg).iter()
             .map(|chr| chr.id)
             .collect::<Vec<_>>();
         
-        let logs_arg = self.arg_log_names.iter()
-            .zip(chr_ids.iter())
-            .map(|(indexed, chr_id)| CharacterLog::from_indexed(*indexed, *chr_id));
+        let logs_arg = self.arg_indexed_logs.iter()
+            .map(|indexed| watch_char_ids.iter()
+                .map(|char_id| CharacterLog::from_indexed(*indexed, *char_id))
+            )
+            .flatten();
         
-        self.cfg.logs.iter()
-            .zip(chr_ids.iter())
-            .filter_map(|(log_cfg, chr_id)| match log_cfg.characters.contains(&chr_id) {
-                true => Some(CharacterLog::from_kind(log_cfg.kind, *chr_id, log_cfg.name)),
-                false => None,
+        let watch = self.cfg.logs.iter()
+            .filter_map(|log_cfg| {
+                let char_logs = watch_char_ids.iter()
+                    .filter_map(|char_id| match log_cfg.characters.contains(&char_id) {
+                        true => Some(CharacterLog::from_indexed(log_cfg.indexed, *char_id)),
+                        false => None,
+                    })
+                    .collect::<Vec<_>>();
+                
+                match char_logs.is_empty() {
+                    true => None,
+                    false => Some(char_logs),
+                }
             })
+            .flatten()
             .chain(logs_arg)
             .dedup()
-            .collect()
+            .collect::<Vec<_>>();
+        
+        watch
     }
     
     pub(crate) fn watch_range(&self) -> Vec<&'static SolarSystem> {

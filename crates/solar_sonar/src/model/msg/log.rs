@@ -1,3 +1,14 @@
+//! We describe logs in different ways:
+//! - [LogKind] a fieldless enum that describes only the type of log.
+//! - [NamedLog] extends log kind to include a String channel name for Group chat logs 
+//! - [IndexedLog] extends log kind to include an indexed ID of a Group channel name instead of a String
+//! - [CharacterLog] extends an indexed log to include a specific character id
+//! 
+//! [NamedLog] is the only one that is not Copy. It is primarly as an intermediary
+//! between user input and actual data.
+//! 
+//! We also model the parent directory of a log path via [LogDirKind], which
+//! allows us to determine the log kind without opening a file.
 use crate::*;
 
 #[derive(
@@ -40,7 +51,7 @@ impl LogKind {
         }
     }
     
-    pub fn from_log_file(file: &LogFile) -> Self {
+    pub(crate) fn from_log_file(file: &LogFile) -> Self {
         match file.name() {
             LogName::Game => Self::Game,
             LogName::Chat(name) => match *name {
@@ -86,13 +97,33 @@ impl NamedLog {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum IndexedLog {
-    Game,
-    Local,
+pub enum IndexedLog {
     Alliance,
     Corporation,
     Fleet,
+    Game,
+    Local,
     Group(IndexId),
+}
+
+impl IndexedLog {
+    pub fn try_from_kind(kind: LogKind, name: Option<&str>, channel_name_index: &ChannelNameIndex) -> SolarResult<Self> {
+        match kind {
+            LogKind::Alliance => Ok(Self::Alliance),
+            LogKind::Corporation => Ok(Self::Corporation),
+            LogKind::Fleet => Ok(Self::Fleet),
+            LogKind::Game => Ok(Self::Game),
+            LogKind::Local => Ok(Self::Local),
+            LogKind::Group => {
+                let Some(name) = name else {
+                    return SolarError::err_msg("Log kind expects Group, but channel name was not provided");
+                };
+                
+                let id = channel_name_index.find(name)?.id();
+                Ok(Self::Group(id))
+            }
+        }
+    }
 }
 
 #[derive(
@@ -125,6 +156,13 @@ impl CharacterLog {
         match self {
             Self::Group { channel_id,.. } => Some(*channel_id),
             _ => None,
+        }
+    }
+    
+    pub fn is_chat(&self) -> bool {
+        match self {
+            Self::Game {..} => false,
+            _ => true,
         }
     }
     
@@ -161,7 +199,7 @@ impl CharacterLog {
         }
     }
     
-    pub fn from_indexed(indexed: IndexedLog, character_id: CharacterId) -> Self {
+    pub(crate) fn from_indexed(indexed: IndexedLog, character_id: CharacterId) -> Self {
         match indexed {
             IndexedLog::Game => Self::Game { character_id },
             IndexedLog::Local => Self::Local { character_id },
@@ -169,6 +207,17 @@ impl CharacterLog {
             IndexedLog::Corporation => Self::Corporation { character_id },
             IndexedLog::Fleet => Self::Fleet { character_id },
             IndexedLog::Group(channel_id) => Self::Group { character_id, channel_id },
+        }
+    }
+    
+    pub(crate) fn to_indexed(&self) -> IndexedLog {
+        match self {
+            Self::Game {..} => IndexedLog::Game,
+            Self::Local {..} => IndexedLog::Local,
+            Self::Alliance {..} => IndexedLog::Alliance,
+            Self::Corporation {..} => IndexedLog::Corporation,
+            Self::Fleet {..} => IndexedLog::Fleet,
+            Self::Group {channel_id,..} => IndexedLog::Group(*channel_id),
         }
     }
 }

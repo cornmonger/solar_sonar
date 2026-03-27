@@ -15,7 +15,7 @@ pub struct Args {
 #[derive(Debug)]
 pub struct ArgParam {
     pub args: Args,
-    pub indexed_logs: Vec<IndexedLog>,
+    pub(crate) indexed_logs: Vec<IndexedLog>,
 }
 
 impl Args {

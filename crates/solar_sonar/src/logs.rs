@@ -97,20 +97,30 @@ impl AsRef<str> for ChatAuthor { fn as_ref(&self) -> &str { self.as_str() } }
     Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
     bitcode::Encode, bitcode::Decode,
 )]
-pub enum LogAnalysis {
-    Intel(IntelLogAnalysis),
+pub struct LogAnalysis {
+    pub(crate) intel: Option<IntelLogAnalysis>,
 }
 
 impl LogAnalysis {
+    pub fn intel(&self) -> Option<&IntelLogAnalysis> {
+        self.intel.as_ref()
+    }
+    
     pub fn system_ids(&self) -> &Vec<SolarId> {
-        match self {
-            Self::Intel(info) => &info.systems,
+        static EMPTY: Vec<SolarId> = vec![];
+        
+        if let Some(intel) = &self.intel {
+            intel.system_ids()
+        } else {
+            &EMPTY
         }
     }
     
     pub fn in_danger(&self) -> bool {
-        match self {
-            Self::Intel(info) => info.in_danger(),
+        if let Some(intel) = &self.intel {
+            intel.in_danger()
+        } else {
+            false
         }
     }
 }
@@ -137,6 +147,10 @@ impl IntelLogAnalysis {
                 Some(last) => Some(last || word.danger(self.ambiguous)),
             })
             .unwrap_or_else(|| true)
+    }
+    
+    pub fn system_ids(&self) -> &Vec<SolarId> {
+       &self.systems
     }
 }
 
@@ -171,6 +185,7 @@ impl LogKeyword {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct Logs(HashMap<CharacterLog, Log>);
 
 impl Logs {
@@ -186,7 +201,7 @@ impl Logs {
         self.0.get_mut(&character_log)
     }
 
-    pub(crate) fn push(&mut self, run: &Running, logfile: &LogFile, read: LogRead) {
+    pub(crate) fn push(&mut self, logfile: &LogFile, read: LogRead) {
         //let channel_id = run.index().chat_channels().find(logfile.name()).expect("chan");
         if self.0.contains_key(&read.character_log) {
             let log = self.0.get_mut(&read.character_log).expect("exists");
@@ -390,18 +405,17 @@ impl LogDirKind {
     }
 }
 
-pub(crate) fn read_logs(run: &Running, logs: &mut Logs) -> SolarResult<()> {
-    read_log_dir(run, logs, LogDirKind::Game)?;
-    read_log_dir(run, logs, LogDirKind::Chat)?;
+pub(crate) fn read_logs(run: &Running, watch_logs: &Vec<CharacterLog>, logs: &mut Logs) -> SolarResult<()> {
+    read_log_dir(run, watch_logs, logs, LogDirKind::Game)?;
+    read_log_dir(run, watch_logs, logs, LogDirKind::Chat)?;
     Ok(())
 }
 
-pub(crate) fn read_log_dir(run: &Running, logs: &mut Logs, dir_kind: LogDirKind) -> SolarResult<()> {
+pub(crate) fn read_log_dir(run: &Running, watch_logs: &Vec<CharacterLog>, logs: &mut Logs, dir_kind: LogDirKind) -> SolarResult<()> {
     let chat_logs_dir = run.cfg.logs_dir.join(dir_kind.dir_name());
-    let watch_logs = run.watch_logs();
     let index = run.index();
 
-    let chatlogs = fs::read_dir(&chat_logs_dir)
+    let log_files = fs::read_dir(&chat_logs_dir)
         .map_err(|e| SolarError::list(e, &chat_logs_dir))?
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| {
@@ -426,23 +440,24 @@ pub(crate) fn read_log_dir(run: &Running, logs: &mut Logs, dir_kind: LogDirKind)
             v.pop().expect("value")
         })
         .collect::<Vec<_>>();
-
-    for chatlog in chatlogs {
-        let log = logs.get_mut(chatlog.character_log).expect("log exists");
+    
+    for log_file in log_files {
+        let log = logs.get_mut(log_file.character_log).expect("log exists");
         let log_source = {
             let source = log.sources
-                .entry(chatlog.character_log.character_id())
-                .or_insert(LogSource { file: chatlog.file.path().to_path_buf(), cursor: 0 });
+                .entry(log_file.character_log.character_id())
+                .or_insert(LogSource { file: log_file.file.path().to_path_buf(), cursor: 0 });
 
-            if source.file != chatlog.file.path() {
-                source.file = chatlog.file.path().to_path_buf();
+            if source.file != log_file.file.path() {
+                source.file = log_file.file.path().to_path_buf();
                 source.cursor = 0;
             }
 
             source
         };
 
-        let read = read_intel_log_file(chatlog.character_log, chatlog.file.path(), log_source.cursor)?;
+        let analyze = &run.cfg.find_character_log(&log_file.character_log)?.pings;
+        let read = read_log_file(log_file.character_log, &analyze, log_file.file.path(), log_source.cursor)?;
         log_source.cursor = read.cursor;
         log.entries.extend(read.entries);
     }
@@ -457,15 +472,22 @@ pub(crate) struct LogRead {
     pub(crate) entries: Vec<LogEntry>,
 }
 
-pub(crate) fn read_intel_log_file(character_log: CharacterLog, filepath: &Path, mut cursor: u64) -> SolarResult<LogRead> {
+pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<PingKind>, filepath: &Path, mut cursor: u64) -> SolarResult<LogRead> {
+    let is_utf8 = !character_log.is_chat();
     let mut entries: Vec<LogEntry> = vec![];
 
     let mut file = File::open(&filepath)
         .map_err(|e| SolarError::read(e, &filepath))?;
     file.seek(SeekFrom::Start(cursor))
         .map_err(|e| SolarError::read(e, &filepath))?;
+    
+    let encoding = match is_utf8 {
+        false => Some(UTF_16LE),
+        true => None,
+    };
+    
     let file = DecodeReaderBytesBuilder::new()
-        .encoding(Some(UTF_16LE))
+        .encoding(encoding)
         .build(file);
     let mut reader = BufReader::new(file);
 
@@ -475,7 +497,10 @@ pub(crate) fn read_intel_log_file(character_log: CharacterLog, filepath: &Path, 
             .map_err(|e| SolarError::read(e, &filepath))?;
 
         if size == 0 || buf.chars().last() != Some('\n') { break }
-        let transcode_size = buf.encode_utf16().count() * 2;
+        let transcode_size = match is_utf8 {
+            false => buf.encode_utf16().count() * 2,
+            true => buf.len(),
+        };
         cursor += transcode_size as u64;
 
         let line = buf.trim().trim_start_matches('\u{feff}');
@@ -486,34 +511,50 @@ pub(crate) fn read_intel_log_file(character_log: CharacterLog, filepath: &Path, 
         };
         let datetime = stamp.and_utc();
         let line = &line[pos..];
-
-        let Some(pos) = line.find(" > ") else { continue };
-        let author = (&line[..pos]).to_string();
-        let pos = line.char_indices().nth(pos + 3).map(|(i,_)| i).unwrap_or(line.len());
-        let content = (&line[pos..]).to_string();
-
-        let mut keywords = vec![];
-        let mut systems = vec![];
-        let words = content.split_whitespace();
-        let mut num_words = 0;
-        for word in words {
-            num_words += 1;
-            let word = word.trim_end_matches('*').to_uppercase();
-            if let Some(keyword) = LogKeyword::matches(&word) {
-                keywords.push(keyword);
-            } else if let Some(system) = STAR_MAP.get_system_named(&word) {
-                systems.push(system.id)
+        
+        let (author, content) = match character_log.is_chat() {
+            true => {
+                let Some(pos) = line.find(" > ") else { continue };
+                let author = (&line[..pos]).to_string();
+                let pos = line.char_indices().nth(pos + 3).map(|(i,_)| i).unwrap_or(line.len());
+                let content = (&line[pos..]).to_string();
+                let author = ChatAuthor::Character(author);
+                (author, content)
             }
-        }
+            false => {
+                let content = (&line[..]).to_string();
+                (ChatAuthor::System, content)
+            },
+        };
 
-        let analysis = LogAnalysis::Intel(IntelLogAnalysis {
-            ambiguous: num_words > (systems.len() + keywords.len()),
-            systems,
-            keywords,
-        });
+        
+        let intel = if analyze.contains(&PingKind::Intel) {
+            let mut keywords = vec![];
+            let mut systems = vec![];
+            let words = content.split_whitespace();
+            let mut num_words = 0;
+            for word in words {
+                num_words += 1;
+                let word = word.trim_end_matches('*').to_uppercase();
+                if let Some(keyword) = LogKeyword::matches(&word) {
+                    keywords.push(keyword);
+                } else if let Some(system) = STAR_MAP.get_system_named(&word) {
+                    systems.push(system.id)
+                }
+            }
+    
+            Some(IntelLogAnalysis {
+                ambiguous: num_words > (systems.len() + keywords.len()),
+                systems,
+                keywords,
+            })
+        } else { None };
+        
+        let analysis = LogAnalysis {
+            intel,
+        };
 
         let timestamp = datetime.into();
-        let author = ChatAuthor::Character(author);
 
         let entry = LogEntry {
             character_log,

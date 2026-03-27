@@ -69,6 +69,7 @@ pub(crate) trait IndexedInner<IDX: Idx>: Sized {
         Ok(inner)
     }
     
+    /*
     fn new_inner_from<T: IndexKey>(data: &Vec<T>, build: fn(IndexId, String, &T) -> IDX) -> SolarResult<Vec<IDX>> {
         let inner = Index::no_duplicate_data(data, Self::NOUN)?
             .into_iter()
@@ -77,6 +78,7 @@ pub(crate) trait IndexedInner<IDX: Idx>: Sized {
 
         Ok(inner)
     }
+    */
     
     fn inner(&self) -> &Vec<IDX>;
     fn inner_mut(&mut self) -> &mut Vec<IDX>;

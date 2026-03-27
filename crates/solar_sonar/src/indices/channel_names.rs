@@ -37,7 +37,7 @@ impl ChannelNameIndex {
         Ok(Self(inner))
     }
     
-    pub fn index_named(&mut self, named: NamedLog) -> IndexedLog {
+    pub(crate) fn index_named(&mut self, named: NamedLog) -> IndexedLog {
         match named {
             NamedLog::Alliance => IndexedLog::Alliance,
             NamedLog::Corporation => IndexedLog::Corporation,

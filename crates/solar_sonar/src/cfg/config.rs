@@ -94,7 +94,6 @@ impl Cfg {
             .map(|log| LogConfig::try_from_cfg(log, &mode_index, &character_index, &chat_channels))
             .collect::<SolarResult<Vec<_>>>()?;
         
-        
         let server_profiles = self.server.serve.into_iter()
             .map(|cfg| ServerProfileConfig::try_from_cfg(cfg))
             .collect::<SolarResult<Vec<_>>>()?;
@@ -159,5 +158,18 @@ pub(crate) fn setup_config_file(filepath: &Path, defaults: &str) -> SolarResult<
         }
     } else {
         SolarError::err_msg("{ERR} please configure {logpath}")
+    }
+}
+    
+impl Config {
+    pub(crate) fn find_character_log(&self, character_log: &CharacterLog) -> SolarResult<&LogConfig> {
+        let indexed_log = character_log.to_indexed(); 
+        let character_id = character_log.character_id();
+        self.logs.iter()
+            .find(|log_cfg| {
+                log_cfg.indexed == indexed_log
+                && log_cfg.characters.contains(&character_id)
+            })
+            .ok_or_else(|| SolarError::msg("Log config not found for character"))
     }
 }
