@@ -42,7 +42,7 @@ struct TestCfg {
     modes: &'static [&'static str],
     server: &'static TestServerCfg,
     client: &'static TestClientCfg,
-    logs: &'static [&'static TestLogCfg],
+    logs: &'static [TestLogCfg],
 }
 
 fn expand_path<P: AsRef<OsStr>>(path: P) -> PathBuf {
@@ -56,12 +56,14 @@ impl Into<sonar::Cfg> for TestCfg {
                 .map(|c| c.into())
                 .collect::<Vec<_>>(),
             settings: sonar::SettingsCfg {
-                logs_dir: expand_path(self.logs_dir),
+                logs_dir: PathBuf::from(self.logs_dir),
                 modes: self.modes.iter()
                     .map(|s| s.to_string())
                     .collect::<Vec<_>>()
             },
-            logs: vec![], //todo
+            logs: self.logs.iter()
+                .map(|c| c.into())
+                .collect::<Vec<_>>(),
             server: self.server.into(),
             client: self.client.into(),
         }
@@ -160,6 +162,28 @@ impl Into<sonar::TlsCfg> for &TestTlsCfg {
 
 pub struct TestLogCfg {
     kind: sonar::LogKind,
+    name: Option<&'static str>,
+    characters: &'static [&'static str],
+    modes: &'static [&'static str],
+    analysis: &'static [&'static str],
+}
+
+impl Into<sonar::LogCfg> for &TestLogCfg {
+    fn into(self) -> sonar::LogCfg {
+        sonar::LogCfg {
+            kind: self.kind.as_input_str().to_string(),
+            name: self.name.map(|s| s.to_string()),
+            modes: self.modes.iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
+            characters: self.characters.iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
+            analysis: self.analysis.iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
+        }
+    }
 }
 
 const TEST_STANDARD_CONFIG: TestCfg = TestCfg {
@@ -171,8 +195,16 @@ const TEST_STANDARD_CONFIG: TestCfg = TestCfg {
         },
     ],
     logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs",
-    modes: &["stand", "crab", "attack"],
-    logs: &[],
+    modes: &["stand", "crab", "fleet"],
+    logs: &[
+        TestLogCfg {
+            kind: sonar::LogKind::Group,
+            name: Some("test.intel"),
+            characters: &["test"],
+            modes: &["stand", "crab", "fleet"],
+            analysis: &["intel"],
+        },
+    ],
     server: &TestServerCfg {
         default: Some("test"),
         serve: &[
@@ -200,8 +232,16 @@ const TEST_TLS_CLIENT_CONFIG: TestCfg = TestCfg {
         },
     ],
     logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs",
-    modes: &["stand", "crab", "attack"],
-    logs: &[],
+    modes: &["stand", "crab", "fleet"],
+    logs: &[
+        TestLogCfg {
+            kind: sonar::LogKind::Group,
+            name: Some("test.intel"),
+            characters: &["test"],
+            modes: &["stand", "crab", "fleet"],
+            analysis: &["intel"],
+        },
+    ],
     server: &TestServerCfg {
         default: Some("test"),
         serve: &[
@@ -228,12 +268,12 @@ const TEST_TLS_CLIENT_CONFIG: TestCfg = TestCfg {
     },
 };
 
-fn test_config(kind: TestKind) -> sonar::CfgParam {
+fn test_config(kind: TestKind) -> sonar::Cfg {
     let cfg: sonar::Cfg = kind.cfg().into();
-    cfg.build().expect("build")
+    cfg
 }
 
-fn home_config() -> sonar::CfgParam {
+fn home_config() -> sonar::Cfg {
     sonar::Cfg::read().expect("home")
 }
 
@@ -257,9 +297,9 @@ fn test_system() -> &'static sonar::SolarSystem {
     sonar::StarMap::get().system_named(TEST_SYSTEM)
 }
 
-fn test_args(cfg_param: &sonar::CfgParam, sys: &sonar::SolarSystem) -> sonar::ArgParam {
+fn test_args(cfg: &sonar::Cfg, sys: &sonar::SolarSystem) -> sonar::Args {
     sonar::Args {
-        watch_character_ids: vec![cfg_param.config.characters[0].id],
+        watch_character_ids: vec![cfg.characters[0].id],
         watch_system_ids: vec![sys.id],
         jumps: sonar::Args::DEFAULT_JUMPS,
         stdio: false,
@@ -267,7 +307,7 @@ fn test_args(cfg_param: &sonar::CfgParam, sys: &sonar::SolarSystem) -> sonar::Ar
         replay_file: None,
         server_profile: None,
         client_profile: None,
-    }.build().expect("args")
+    }
 }
 
 
@@ -277,11 +317,16 @@ async fn test_play_fixture() {
 
     setup();
     let sys = test_system();
-    let cfg_param = test_config(TestKind::Standard); 
-    let mut arg_param = test_args(&cfg_param, sys);
-    arg_param.args.replay_file = Some(expand_path(REPLAY));
-
-    let mut handle = sonar::start(arg_param, cfg_param).unwrap();
+    let cfg = test_config(TestKind::Standard); 
+    let mut args = test_args(&cfg, sys);
+    args.replay_file = Some(expand_path(REPLAY));
+    let params = sonar::ParamsBuilder::new()
+        .cfg(cfg)
+        .args(args)
+        .build()
+        .expect("ok");
+    
+    let mut handle = sonar::start(params).unwrap();
 
     loop {
         tokio::select! {
@@ -299,12 +344,18 @@ async fn test_play_fixture() {
 async fn live() {
     setup();
     let sys = test_system();
-    let cfg_param = home_config(); 
-    let mut arg_param = test_args(&cfg_param, sys);
-    arg_param.args.audio = true;
-    arg_param.args.stdio = true;
-    arg_param.args.jumps = 10;
-    let mut handle = sonar::start(arg_param, cfg_param).unwrap();
+    let cfg = home_config(); 
+    let mut args = test_args(&cfg, sys);
+    args.audio = true;
+    args.stdio = true;
+    args.jumps = 10;
+    let params = sonar::ParamsBuilder::new()
+        .cfg(cfg)
+        .args(args)
+        .build()
+        .expect("ok");
+    
+    let mut handle = sonar::start(params).unwrap();
 
     loop {
         tokio::select! {

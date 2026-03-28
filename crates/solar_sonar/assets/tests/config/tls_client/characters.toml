@@ -1,4 +1,4 @@
 [[character]]
 alias = "test"
 id = 12345
-intel_channels = ["test.intel"]
+name = "Test"

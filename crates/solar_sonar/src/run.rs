@@ -6,30 +6,11 @@ pub async fn run_cli() -> ExitCode {
     }
     
     let cli = Cli::parse();
-    let Ok(CfgParam{config, mut index}) = handle_error(Cfg::read()) else {
+    let params = ParamsBuilder::new()
+        .cli(cli)
+        .build();
+    let Ok(params) = handle_error(params) else {
         return ExitCode::FAILURE
-    };
-    let Ok(args_param) = handle_error(Args::try_from_cli(cli, &config, &mut index)) else {
-        return ExitCode::FAILURE
-    };
-
-    let ArgParam{args, indexed_logs: arg_indexed_logs} = args_param;
-    
-    let sonar_options = SonarOptions {
-        audio: args.audio,
-        stdio: args.stdio,
-    };
-
-    if check_args(&args, &config).is_err() {
-        return ExitCode::FAILURE;
-    }
-    
-    let params = RunningParams {
-        args,
-        cfg: config,
-        index,
-        arg_indexed_logs,
-        io: sonar_options,
     };
     
     let Ok(Startup { running, sonar_io }) = handle_error(Running::startup(params)) else {
@@ -81,28 +62,98 @@ impl SolarSonarHandle {
     }
 }
 
-pub fn start(arg: ArgParam, cfg: CfgParam) -> SolarResult<SolarSonarHandle> {
-    handle_error(SolarSonar::init_once())?;
+pub struct ParamsBuilder {
+    cli: Option<Cli>,
+    args: Option<Args>,
+    cfg: Option<Cfg>,
+}
 
-    let ArgParam { args, indexed_logs: arg_indexed_logs } = arg;
-    let CfgParam { config, index } = cfg;
-
-    let sonar_options = SonarOptions {
-        audio: args.audio,
-        stdio: args.stdio,
-    };
-
-    check_args(&args, &config)?;
+impl ParamsBuilder {
+    pub fn new() -> Self {
+        Self {
+            cli: None,
+            args: None,
+            cfg: None,
+        }
+    }
     
-    let running = RunningParams {
-        args,
-        cfg: config,
-        index,
-        arg_indexed_logs,
-        io: sonar_options,
-    };
+    pub fn cli(mut self, cli: Cli) -> Self {
+        self.cli = Some(cli);
+        self
+    }
     
-    let Startup { running, sonar_io } = handle_error(Running::startup(running))?;
+    pub fn args(mut self, args: Args) -> Self {
+        self.args = Some(args);
+        self
+    }
+    
+    pub fn cfg(mut self, cfg: Cfg) -> Self {
+        self.cfg = Some(cfg);
+        self
+    }
+    
+    pub fn build(self) -> SolarResult<Params> {
+        let is_cli = self.cli.is_some();
+        match (is_cli, self.args.is_some(), self.cfg.is_some()) {
+            (true, false, false) | (false, true, true) => Ok(()),
+            (true, true, true) | (true, false, true) | (true, true, false) =>
+                SolarError::err_msg("Cli is mutually exclusive with Args & Cfg"),
+            (false, false, true) => SolarError::err_msg("Args is required"),
+            (false, true, false) => SolarError::err_msg("Cfg is required"),
+            (false, false, false) =>
+                SolarError::err_msg("Either Cli or Args & Cfg is required"),
+        }?;
+        
+        SolarSonar::init_once()?;
+        
+        let (cfg_param, args_param) = match is_cli {
+            true => Self::build_cli(self.cli.expect("some")),
+            false => Self::build_args(self.cfg.expect("some"), self.args.expect("some")),
+        }?;
+        
+        
+        let CfgParam { config, index } = cfg_param;
+        let ArgParam { args, arg_indexed_logs } = args_param;
+        
+        check_args(&args, &config)?;
+        
+        let opts = SonarOptions {
+            audio: args.audio,
+            stdio: args.stdio,
+        };
+        
+        Ok(Params {
+            index,
+            cfg: config,
+            args,
+            arg_indexed_logs,
+            opts,
+        })
+    }
+    
+    fn build_cli(cli: Cli) -> SolarResult<(CfgParam, ArgParam)> {
+        let mut cfg_param = Cfg::read()?.build()?;
+        let arg_param = Args::try_from_cli(cli, &cfg_param.config, &mut cfg_param.index)?;
+        Ok((cfg_param, arg_param))
+    }
+    
+    fn build_args(cfg: Cfg, args: Args) -> SolarResult<(CfgParam, ArgParam)> {
+        let mut cfg_param = cfg.build()?;
+        let arg_param = args.build(&mut cfg_param.index)?;
+        Ok((cfg_param, arg_param))
+    }
+}
+
+pub struct Params {
+    pub(crate) cfg: Config,
+    pub(crate) index: Index,
+    pub(crate) args: Args,
+    pub(crate) arg_indexed_logs: Vec<IndexedLog>,
+    pub(crate) opts: SonarOptions,
+}
+
+pub fn start(params: Params) -> SolarResult<SolarSonarHandle> {
+    let Startup { running, sonar_io } = handle_error(Running::startup(params))?;
     let rx = sonar_io.subscribe();
     
     let cancel = r::tokio::CancellationToken::new();
@@ -391,15 +442,6 @@ async fn select_client(stamp: Timestamp, tls_client: &mut Option<TlsClientHandle
 }
 
 #[derive(Debug)]
-pub(crate) struct RunningParams {
-    pub(crate) args: Args,
-    pub(crate) arg_indexed_logs: Vec<IndexedLog>,
-    pub(crate) index: Index,
-    pub(crate) cfg: Config,
-    pub(crate) io: SonarOptions,
-}
-
-#[derive(Debug)]
 pub(crate) struct Running {
     pub(crate) args: Args,
     pub(crate) arg_indexed_logs: Vec<IndexedLog>,
@@ -413,8 +455,8 @@ pub(crate) struct Startup {
 }
 
 impl Running {
-    pub(crate) fn startup(params: RunningParams) -> SolarResult<Startup> {
-        let sonar_io = SonarIO::init(params.io)?;
+    pub(crate) fn startup(params: Params) -> SolarResult<Startup> {
+        let sonar_io = SonarIO::init(params.opts)?;
         
         let running = Self {
             args: params.args,

@@ -15,7 +15,7 @@ pub struct Args {
 #[derive(Debug)]
 pub struct ArgParam {
     pub args: Args,
-    pub(crate) indexed_logs: Vec<IndexedLog>,
+    pub(crate) arg_indexed_logs: Vec<IndexedLog>,
 }
 
 impl Args {
@@ -65,7 +65,7 @@ impl Args {
     }
 
     pub fn build(self, index: &mut Index) -> SolarResult<ArgParam> {
-        let indexed_log_names = if let Some(replay_file) = self.replay_file.as_ref().map(PathBuf::from) {
+        let arg_indexed_logs = if let Some(replay_file) = self.replay_file.as_ref().map(PathBuf::from) {
             let dir_kind = LogDirKind::from_file_path(&replay_file)
                 .unwrap_or(LogDirKind::Chat);
             let log_file = LogFile::from_path_buf(replay_file, dir_kind)
@@ -80,7 +80,7 @@ impl Args {
 
         Ok(ArgParam {
             args: self,
-            indexed_logs: indexed_log_names,
+            arg_indexed_logs,
         })
     }
     

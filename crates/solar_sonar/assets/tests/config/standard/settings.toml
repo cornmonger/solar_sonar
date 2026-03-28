@@ -1,1 +1,2 @@
 logs_dir = "$CARGO_MANIFEST_DIR/assets/tests/logs"
+modes = ["stand", "crab", "fleet"]

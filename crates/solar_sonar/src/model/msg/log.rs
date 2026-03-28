@@ -39,6 +39,17 @@ impl LogKind {
         }
     }
     
+    pub fn as_input_str(&self) -> &'static str {
+        match self {
+            LogKind::Game => "game",
+            LogKind::Local => "local",
+            LogKind::Alliance => "alliance",
+            LogKind::Corporation => "corp",
+            LogKind::Fleet => "fleet",
+            LogKind::Group => "group",
+        }
+    }
+    
     pub fn from_log_name(name: &str) -> Self {
         match name {
             "Game" => Self::Game,

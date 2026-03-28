@@ -35,7 +35,7 @@ pub struct CfgParam {
 }
 
 impl Cfg {
-    pub fn read() -> SolarResult<CfgParam> {
+    pub fn read() -> SolarResult<Self> {
         let config_dir = SolarSonar::get().config_dir();
         if !config_dir.exists() {
             fs::create_dir_all(&config_dir)
@@ -45,7 +45,7 @@ impl Cfg {
         Self::read_dir(&config_dir)
     }
 
-    pub fn read_dir(config_dir: &Path) -> SolarResult<CfgParam> {
+    pub fn read_dir(config_dir: &Path) -> SolarResult<Self> {
         let config_dir = match config_dir.is_absolute() {
             true => Cow::Borrowed(config_dir),
             false => expand_path(config_dir)?,
@@ -64,7 +64,7 @@ impl Cfg {
         let server = ServerCfg::read(&config_dir)?;
         let client = ClientCfg::read(&config_dir)?;
         
-        Cfg { settings, characters, logs, server, client }.build()
+        Ok(Cfg { settings, characters, logs, server, client })
     }
 
     pub fn build(mut self) -> SolarResult<CfgParam> {

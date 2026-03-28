@@ -1,0 +1,6 @@
+[[log]]
+kind = "group"
+name = "test.intel"
+characters = ["test"]
+modes = ["stand", "crab", "fleet"]
+analysis = ["intel"]

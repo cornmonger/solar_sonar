@@ -54,7 +54,6 @@ pub(crate) mod sonar_io {
     }
     pub(crate) mod audio;
 }
-pub(crate) mod stdio;
 pub(crate) mod tls {
     pub(crate) mod certificate;
     pub(crate) mod client;
@@ -94,7 +93,7 @@ pub use self::{
             analysis::*,
         },
     },
-    run::{run_cli,start,SolarSonar},
+    run::{run_cli,start,SolarSonar, ParamsBuilder, Params},
 };
 
 pub(crate) use self::{
@@ -121,7 +120,6 @@ pub(crate) use self::{
             stdio::*,
         },
     },
-    stdio::*,
     tls::{
         certificate::*,
         client::*,
