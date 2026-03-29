@@ -76,4 +76,12 @@ impl LogAnalysis {
         
         danger
     }
+    
+    pub fn display_worthy(&self) -> bool {
+        if self.dangerous() {
+            true
+        } else {
+            false
+        }
+    }
 }

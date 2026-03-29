@@ -68,7 +68,19 @@ pub struct LogEntry {
     pub timestamp: Timestamp,
     pub author: ChatAuthor,
     pub content: String,
+    pub content_kind: LogContentKind,
     pub analysis: LogAnalysis,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
+    bitcode::Encode, bitcode::Decode,
+)]
+pub enum LogContentKind {
+    System,
+    MOTD,
+    Chat,
+    Emote,
 }
 
 #[derive(
@@ -81,7 +93,14 @@ pub enum ChatAuthor {
 }
 
 impl ChatAuthor {
-    const SYSTEM: &'static str = "System";
+    const SYSTEM: &'static str = "EVE System";
+    
+    pub fn from_string(s: String) -> Self {
+        match s.as_ref() {
+            Self::SYSTEM => Self::System,
+            _ => Self::Character(s),
+        }
+    }
     
     pub fn as_str(&self) -> &str {
         match self {
@@ -420,13 +439,13 @@ pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<AnalysisK
         let datetime = stamp.and_utc();
         let line = &line[pos..];
         
-        let (author, content) = match character_log.is_chat() {
+        let (author, mut content) = match character_log.is_chat() {
             true => {
                 let Some(pos) = line.find(" > ") else { continue };
                 let author = (&line[..pos]).to_string();
                 let pos = line.char_indices().nth(pos + 3).map(|(i,_)| i).unwrap_or(line.len());
                 let content = (&line[pos..]).to_string();
-                let author = ChatAuthor::Character(author);
+                let author = ChatAuthor::from_string(author);
                 (author, content)
             }
             false => {
@@ -434,7 +453,6 @@ pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<AnalysisK
                 (ChatAuthor::System, content)
             },
         };
-
         
         let intel = if analyze.contains(&AnalysisKind::Intel) {
             Some(IntelAnalyzer.analyze(&content))
@@ -449,12 +467,30 @@ pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<AnalysisK
         };
 
         let timestamp = datetime.into();
+        
+        let content_kind = match &author {
+            ChatAuthor::System => {
+                const MOTD_PREFIX: &str = "Channel MOTD: ";
+                let orig_len = content.len();
+                let trimmed = content.trim_start_matches(MOTD_PREFIX);
+                if orig_len != content.len() {
+                    content = trimmed.to_string();
+                    LogContentKind::MOTD
+                } else {
+                    LogContentKind::System
+                }
+            },
+            ChatAuthor::Character(_) => {
+                LogContentKind::Chat
+            }
+        }; 
 
         let entry = LogEntry {
             character_log,
             timestamp,
             author,
             content,
+            content_kind,
             analysis,
         };
 

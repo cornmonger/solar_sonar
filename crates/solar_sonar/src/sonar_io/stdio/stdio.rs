@@ -49,7 +49,9 @@ impl SonarListener for SonarStdio {
                 }
             },
             DataEvent::LogEntry { entry, in_range, in_danger, dangerous } => {
-                println!("{}", entry.display_ansi(run.index(), *in_range, *in_danger, *dangerous));
+                if entry.analysis.display_worthy() {
+                    println!("{}", entry.display_ansi(run.index(), *in_range, *in_danger, *dangerous));
+                }
             },
             DataEvent::PingFortune => {},
             DataEvent::PingChannel {..} => {},
