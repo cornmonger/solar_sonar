@@ -8,10 +8,10 @@ pub struct LogsCfg {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LogCfg {
-    pub kind: String,
+    pub kind: LogKind,
     pub modes: Vec<String>,
     pub characters: Vec<String>,
-    pub analysis: Vec<String>,
+    pub analysis: Vec<AnalysisKind>,
     pub name: Option<String>,
 }
 
@@ -30,7 +30,9 @@ impl CfgToml for LogsCfg {
 
 impl LogConfig {
     pub(crate) fn try_from_cfg(cfg: LogCfg, mode_index: &ModeIndex, character_index: &CharacterIndex, channel_index: &ChannelNameIndex) -> SolarResult<Self> {
-        let kind = LogKind::try_from_input(&cfg.kind)?;
+        let kind = cfg.kind;
+        let analysis = cfg.analysis;
+        
         let indexed = IndexedLog::try_from_kind(kind, cfg.name.as_deref(), channel_index)?;
         
         let modes = cfg.modes.into_iter()
@@ -39,10 +41,7 @@ impl LogConfig {
         let characters = cfg.characters.into_iter()
             .map(|c| character_index.find(&c).map(|idx| idx.character_id()))
             .collect::<SolarResult<Vec<_>>>()?;
-        let pings = cfg.analysis.into_iter()
-            .map(|p| AnalysisKind::try_from_input(&p))
-            .collect::<SolarResult<Vec<_>>>()?;
         
-        Ok(Self { indexed, modes, characters, analysis: pings })
+        Ok(Self { indexed, modes, characters, analysis })
     }
 }

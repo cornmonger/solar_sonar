@@ -10,6 +10,7 @@ pub struct Config {
     pub logs_dir: PathBuf,
     pub characters: Vec<CharacterConfig>,
     pub logs: Vec<LogConfig>,
+    pub modes: Vec<ModeConfig>,
     pub server_profiles: Vec<ServerProfileConfig>,
     pub client_profiles: Vec<ClientProfileConfig>,
     pub default_client_profile: Option<String>,
@@ -22,6 +23,7 @@ pub struct Config {
 pub struct Cfg {
     pub settings: SettingsCfg,
     pub characters: Vec<CharacterCfg>,
+    pub modes: Vec<NamedModeDirCfg>,
     pub logs: Vec<LogCfg>,
     pub server: ServerCfg,
     pub client: ClientCfg,
@@ -57,6 +59,10 @@ impl Cfg {
             .characters.into_iter()
             .collect::<Vec<_>>();
         
+        let modes = settings.modes.iter()
+            .map(|mode_name| NamedModeDirCfg::read_dir(&config_dir, mode_name))
+            .collect::<SolarResult<Vec<_>>>()?;
+        
         let logs = LogsCfg::read(&config_dir)?
             .logs.into_iter()
             .collect::<Vec<_>>();
@@ -64,7 +70,7 @@ impl Cfg {
         let server = ServerCfg::read(&config_dir)?;
         let client = ClientCfg::read(&config_dir)?;
         
-        Ok(Cfg { settings, characters, logs, server, client })
+        Ok(Cfg { settings, modes, characters, logs, server, client })
     }
 
     pub fn build(mut self) -> SolarResult<CfgParam> {
@@ -83,6 +89,10 @@ impl Cfg {
         };
         
         let mode_index = ModeIndex::try_new(self.settings.modes)?;
+        
+        let modes = self.modes.into_iter()
+            .map(|cfg| ModeConfig::try_from_cfg(cfg, &mode_index))
+            .collect::<SolarResult<Vec<_>>>()?;
         
         let channel_names = self.logs.iter_mut()
             .filter_map(|log| log.name.as_ref().map(|name| name.to_string()))
@@ -107,6 +117,7 @@ impl Cfg {
         let config = Config {
             logs_dir,
             characters,
+            modes,
             logs,
             server_profiles,
             client_profiles,
@@ -126,6 +137,36 @@ pub(crate) trait CfgToml: serde::de::DeserializeOwned {
     
     fn read(config_dir: &Path) -> SolarResult<Self> {
         let filepath = config_dir.join(Self::TOML_FILENAME);
+        if !filepath.exists() {
+            setup_config_file(&filepath, Self::DEFAULT_TOML)?;
+        }
+
+        let toml_str = fs::read_to_string(&filepath)
+            .map_err(|e| SolarError::read(e, &filepath))?;
+
+        let toml: Self = toml::from_str(&toml_str)
+            .map_err(|e| SolarError::cfg(e, filepath))?;
+
+        Ok(toml)
+    }
+}
+
+pub(crate) const MODE_SUBDIR_ANALYSIS: Option<&'static str> = Some("analysis");
+
+pub(crate) trait ModalCfgToml: serde::de::DeserializeOwned {
+    const SUBDIR: Option<&'static str>;
+    const TOML_FILENAME: &'static str;
+    const DEFAULT_TOML: &'static str;
+    
+    fn read(config_dir: &Path, mode: &str) -> SolarResult<Self> {
+        let filepath = {
+            let mut filepath = config_dir.join(mode);
+            if let Some(subdir) = Self::SUBDIR {
+                filepath = filepath.join(subdir);
+            }
+            
+            filepath.join(Self::TOML_FILENAME)
+        };
         if !filepath.exists() {
             setup_config_file(&filepath, Self::DEFAULT_TOML)?;
         }

@@ -15,6 +15,12 @@ pub(crate) mod cfg {
     pub(crate) mod client;
     pub(crate) mod config;
     pub(crate) mod logs;
+    pub(crate) mod mode {
+        pub(crate) mod analysis {
+            pub(crate) mod combat;
+        }
+        pub(crate) mod mode;
+    }
     pub(crate) mod server;
     pub(crate) mod settings;
     pub(crate) mod tls;
@@ -68,6 +74,12 @@ pub use self::{
         client::*,
         config::*,
         logs::*,
+        mode::{
+            analysis::{
+                combat::*,
+            },
+            mode::*,
+        },
         server::*,
         settings::*,
         tls::*,

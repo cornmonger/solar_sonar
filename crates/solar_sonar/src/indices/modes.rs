@@ -1,8 +1,10 @@
 use crate::*;
 
+pub type ModeId = IndexId;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct ModeIdx {
-    id: IndexId, 
+    id: ModeId, 
     name: String,
 }
 
@@ -11,7 +13,7 @@ impl ModeIdx {
 }
 
 impl Idx for ModeIdx {
-    fn id(&self) -> IndexId { self.id }
+    fn id(&self) -> ModeId { self.id }
     fn key(&self) -> &str { self.name() }
 }
 
