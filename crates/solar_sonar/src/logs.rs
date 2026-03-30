@@ -44,6 +44,8 @@ impl PartialOrd<DateTime<Utc>> for Timestamp {
 }
 
 impl Timestamp {
+    pub fn zero() -> Self { Self(0, 0) }
+    
     pub fn to_datetime(&self) -> DateTime<Utc> {
         Utc.timestamp_opt(self.0, self.1).single().expect("valid timestamp")
     }
@@ -332,13 +334,13 @@ impl LogDirKind {
     }
 }
 
-pub(crate) fn read_logs(run: &Running, watch_logs: &Vec<CharacterLog>, logs: &mut Logs) -> SolarResult<()> {
-    read_log_dir(run, watch_logs, logs, LogDirKind::Game)?;
-    read_log_dir(run, watch_logs, logs, LogDirKind::Chat)?;
+pub(crate) fn read_logs(run: &Running, watch_logs: &Vec<CharacterLog>, analyzer_state: &mut AnalyzerState, logs: &mut Logs) -> SolarResult<()> {
+    read_log_dir(run, watch_logs, analyzer_state, logs, LogDirKind::Game)?;
+    read_log_dir(run, watch_logs, analyzer_state, logs, LogDirKind::Chat)?;
     Ok(())
 }
 
-pub(crate) fn read_log_dir(run: &Running, watch_logs: &Vec<CharacterLog>, logs: &mut Logs, dir_kind: LogDirKind) -> SolarResult<()> {
+pub(crate) fn read_log_dir(run: &Running, watch_logs: &Vec<CharacterLog>, analyzer_state: &mut AnalyzerState, logs: &mut Logs, dir_kind: LogDirKind) -> SolarResult<()> {
     let chat_logs_dir = run.cfg.logs_dir.join(dir_kind.dir_name());
     let index = run.index();
 
@@ -384,7 +386,8 @@ pub(crate) fn read_log_dir(run: &Running, watch_logs: &Vec<CharacterLog>, logs: 
         };
 
         let analyze = &run.cfg.find_character_log(&log_file.character_log)?.analysis;
-        let read = read_log_file(log_file.character_log, &analyze, log_file.file.path(), log_source.cursor)?;
+        let mode_cfg = &run.mode_config();
+        let read = read_log_file(log_file.character_log, &analyze, mode_cfg, log_file.file.path(), analyzer_state, log_source.cursor)?;
         log_source.cursor = read.cursor;
         log.entries.extend(read.entries);
     }
@@ -399,7 +402,7 @@ pub(crate) struct LogRead {
     pub(crate) entries: Vec<LogEntry>,
 }
 
-pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<AnalysisKind>, filepath: &Path, mut cursor: u64) -> SolarResult<LogRead> {
+pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<AnalysisKind>, mode_cfg: &ModeConfig, filepath: &Path, analyzer_state: &mut AnalyzerState, mut cursor: u64) -> SolarResult<LogRead> {
     let is_utf8 = !character_log.is_chat();
     let mut entries: Vec<LogEntry> = vec![];
 
@@ -454,18 +457,6 @@ pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<AnalysisK
             },
         };
         
-        let intel = if analyze.contains(&AnalysisKind::Intel) {
-            Some(IntelAnalyzer.analyze(&content))
-        } else { None };
-        let callout = if analyze.contains(&AnalysisKind::Callout) {
-            Some(CalloutAnalyzer.analyze(&content))
-        } else { None };
-        
-        let analysis = LogAnalysis {
-            intel,
-            callout,
-        };
-
         let timestamp = datetime.into();
         
         let content_kind = match &author {
@@ -484,6 +475,21 @@ pub(crate) fn read_log_file(character_log: CharacterLog, analyze: &Vec<AnalysisK
                 LogContentKind::Chat
             }
         }; 
+        
+        let intel = if analyze.contains(&AnalysisKind::Intel) {
+            Some(IntelAnalyzer.analyze(&content))
+        } else { None };
+        let callout = if analyze.contains(&AnalysisKind::Callout) {
+            Some(CalloutAnalyzer.analyze(&content))
+        } else { None };
+        let combat = if analyze.contains(&AnalysisKind::Combat) {
+            Some(CombatAnalyzer::new(mode_cfg, analyzer_state).analyze(&content, &timestamp))
+        } else { None };
+        
+        let analysis = LogAnalysis {
+            intel,
+            callout,
+        };
 
         let entry = LogEntry {
             character_log,

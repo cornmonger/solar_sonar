@@ -2,6 +2,7 @@ use crate::*;
 
 #[derive(Debug, Clone, clap::Parser)]
 pub struct Cli {
+    pub mode: String,
     /// Characters to watch intel for
     pub watch_characters: String,
     /// Systems to watch

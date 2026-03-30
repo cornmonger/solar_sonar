@@ -2,6 +2,7 @@ use crate::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Args {
+    pub mode: String,
     pub watch_character_ids: Vec<CharacterId>,
     pub watch_system_ids: Vec<SolarId>,
     pub jumps: u8,
@@ -15,6 +16,7 @@ pub struct Args {
 #[derive(Debug)]
 pub struct ArgParam {
     pub args: Args,
+    pub(crate) mode_id: ModeId,
     pub(crate) arg_indexed_logs: Vec<IndexedLog>,
 }
 
@@ -51,6 +53,7 @@ impl Args {
             .transpose()?;
 
         let this = Args {
+            mode: cli.mode,
             watch_character_ids,
             watch_system_ids,
             jumps,
@@ -77,10 +80,13 @@ impl Args {
         } else {
             vec![]
         };
+        
+        let mode_id = index.modes().find(&self.mode)?.id();
 
         Ok(ArgParam {
             args: self,
             arg_indexed_logs,
+            mode_id,
         })
     }
     

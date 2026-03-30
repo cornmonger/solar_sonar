@@ -113,7 +113,7 @@ impl ParamsBuilder {
         
         
         let CfgParam { config, index } = cfg_param;
-        let ArgParam { args, arg_indexed_logs } = args_param;
+        let ArgParam { args, arg_indexed_logs, mode_id } = args_param;
         
         check_args(&args, &config)?;
         
@@ -128,6 +128,7 @@ impl ParamsBuilder {
             args,
             arg_indexed_logs,
             opts,
+            mode_id,
         })
     }
     
@@ -150,6 +151,7 @@ pub struct Params {
     pub(crate) args: Args,
     pub(crate) arg_indexed_logs: Vec<IndexedLog>,
     pub(crate) opts: SonarOptions,
+    pub(crate) mode_id: ModeId,
 }
 
 pub fn start(params: Params) -> SolarResult<SolarSonarHandle> {
@@ -283,6 +285,7 @@ async fn run(run: Running, mut io: SonarIO) -> SolarResult<()> {
     io.broadcast(DataEvent::PingFortune)?;
 
     let mut logs = Logs::new_watch(&run);
+    let mut analyzer_state = AnalyzerState::new();
     let mut sleep_time = Duration::from_secs(0);
     let signal_ctl_c = tokio::signal::ctrl_c();
     tokio::pin!(signal_ctl_c);
@@ -295,13 +298,15 @@ async fn run(run: Running, mut io: SonarIO) -> SolarResult<()> {
                 let run = &run;
                 let watch_channels = &watch_channels;
                 let logs = &mut logs;
-                Box::pin(async move { select_logs(&run, &watch_channels, stamp, logs).await })
+                let analyzer_state = &mut analyzer_state;
+                Box::pin(async move { select_logs(&run, &watch_channels, stamp, analyzer_state, logs).await })
             },
             SourceKind::Replay => {
                 let run = &run;
                 let replay_log = replay_log.as_ref().expect("exists");
                 let logs = &mut logs;
-                Box::pin(async move { select_replay(&run, stamp, logs, &replay_log).await })
+                let analyzer_state = &mut analyzer_state;
+                Box::pin(async move { select_replay(&run, stamp, analyzer_state, logs, &replay_log).await })
             },
             SourceKind::Client => {
                 let tls_client = &mut tls_client;
@@ -375,9 +380,9 @@ async fn run(run: Running, mut io: SonarIO) -> SolarResult<()> {
     Ok(())
 }
 
-async fn select_logs(run: &Running, watch_logs: &Vec<CharacterLog>, stamp: Timestamp, logs: &mut Logs) -> Option<SolarResult<Vec<LogEntry>>> {
+async fn select_logs(run: &Running, watch_logs: &Vec<CharacterLog>, stamp: Timestamp, analyzer_state: &mut AnalyzerState, logs: &mut Logs) -> Option<SolarResult<Vec<LogEntry>>> {
     let result = (|| {
-        read_logs(&run, watch_logs, logs)?;
+        read_logs(&run, watch_logs, analyzer_state, logs)?;
         
         let activity = watch_logs.iter()
             .flat_map(|channel| logs.take_entries(channel))
@@ -394,11 +399,12 @@ async fn select_logs(run: &Running, watch_logs: &Vec<CharacterLog>, stamp: Times
     result.transpose()
 }
 
-async fn select_replay(run: &Running, stamp: Timestamp, logs: &mut Logs, log_file: &LogFile) -> Option<SolarResult<Vec<LogEntry>>> {
+async fn select_replay(run: &Running, stamp: Timestamp, analyzer_state: &mut AnalyzerState, logs: &mut Logs, log_file: &LogFile) -> Option<SolarResult<Vec<LogEntry>>> {
     let result = (|| {
         let character_log = log_file.to_character_log(run.index())?;
         let analyze = &run.cfg.find_character_log(&character_log)?.analysis;
-        let read = read_log_file(character_log, analyze, &log_file.path(), 0)?;
+        let mode_cfg = run.mode_config();
+        let read = read_log_file(character_log, analyze, &mode_cfg, &log_file.path(), analyzer_state, 0)?;
         logs.push(&log_file, read);
         
         let activity = logs.take_entries(&character_log).into_iter()
@@ -447,6 +453,7 @@ pub(crate) struct Running {
     pub(crate) arg_indexed_logs: Vec<IndexedLog>,
     pub(crate) index: Index,
     pub(crate) cfg: Config,
+    pub(crate) mode_id: ModeId,
 }
 
 pub(crate) struct Startup {
@@ -463,6 +470,7 @@ impl Running {
             arg_indexed_logs: params.arg_indexed_logs,
             index: params.index,
             cfg: params.cfg,
+            mode_id: params.mode_id,
         };
         
         Ok(Startup { running, sonar_io })
@@ -518,6 +526,12 @@ impl Running {
     }
     
     pub(crate) fn index(&self) -> &Index { &self.index }
+    
+    pub(crate) fn mode_config(&self) -> &ModeConfig {
+        self.cfg.modes.iter()
+            .find(|mode_cfg| mode_cfg.id == self.mode_id)
+            .expect("mode config exists")
+    }
 }
 
 fn find_server_profile<'a>(args: &Args, cfg: &'a Config) -> Option<&'a ServerProfileConfig> {

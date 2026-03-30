@@ -1,9 +1,10 @@
 pub(crate) mod analysis {
     pub(crate) mod analyzer;
-    pub(crate) mod intel;
     pub(crate) mod callout;
     pub(crate) mod combat;
+    pub(crate) mod intel;
     pub(crate) mod message;
+    pub(crate) mod state;
 }
 pub(crate) mod args;
 pub(crate) mod assets;
@@ -115,6 +116,7 @@ pub(crate) use self::{
         combat::*,
         intel::*,
         message::*,
+        state::*,
     },
     assets::*,
     error::*,

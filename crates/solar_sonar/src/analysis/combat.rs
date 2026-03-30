@@ -29,9 +29,9 @@ pub struct Combat {
 )]
 pub enum CombatKind {
     /// Player vs Player
-    PvP,
+    PVP,
     /// Player vs Environment
-    PvE,
+    PVE,
 }
 
 #[derive(
@@ -54,8 +54,46 @@ pub enum Combatant {
 impl Analysis for CombatAnalysis {
     fn dangerous(&self) -> bool {
         self.combat.as_ref().is_some_and(|combat| {
-            combat.kind == CombatKind::PvP
+            combat.kind == CombatKind::PVP
             && combat.friendly_fire == false 
         })
+    }
+}
+
+pub struct CombatAnalyzer<'a> {
+    cfg: &'a CombatAnalysisModeConfig,
+    state: &'a mut CombatAnalyzerState,
+}
+
+pub(crate) struct CombatAnalyzerState {
+    last_combat_time: Timestamp,
+    last_yellowbox_time: Timestamp,
+}
+
+impl CombatAnalyzerState {
+    pub(crate) fn new() -> Self {
+        Self {
+            last_combat_time: Timestamp::zero(),
+            last_yellowbox_time: Timestamp::zero(),
+        }
+    }
+}
+
+impl<'a> CombatAnalyzer<'a> {
+    pub(crate) fn new(cfg: &'a ModeConfig, state: &'a mut AnalyzerState) -> Self {
+        let cfg = &cfg.combat_analysis;
+        let state = &mut state.combat;
+        
+        Self {
+            cfg,
+            state,
+        }
+    }
+    
+    pub(crate) fn analyze(mut self, content: &str, time: &Timestamp) -> CombatAnalysis {
+        let combat = None;
+        CombatAnalysis {
+            combat,
+        }
     }
 }
