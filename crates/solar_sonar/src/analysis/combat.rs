@@ -1,7 +1,5 @@
 use crate::*;
 
-
-
 #[derive(
     Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
     bitcode::Encode, bitcode::Decode,
@@ -41,6 +39,7 @@ pub enum CombatKind {
     bitcode::Encode, bitcode::Decode,
 )]
 pub enum Combatant {
+    KnownCharacter(CharacterId),
     Character {
         name: String,
         corporation: String,
