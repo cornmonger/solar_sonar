@@ -194,7 +194,7 @@ const TEST_STANDARD_CONFIG: TestCfg = TestCfg {
             name: "Test",
         },
     ],
-    logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs",
+    logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs/intel",
     modes: &["stand", "crab", "fleet"],
     logs: &[
         TestLogCfg {
@@ -231,7 +231,7 @@ const TEST_TLS_CLIENT_CONFIG: TestCfg = TestCfg {
             name: "Test",
         },
     ],
-    logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs",
+    logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs/intel",
     modes: &["stand", "crab", "fleet"],
     logs: &[
         TestLogCfg {
@@ -313,7 +313,7 @@ fn test_args(cfg: &sonar::Cfg, sys: &sonar::SolarSystem) -> sonar::Args {
 
 #[tokio::test]
 async fn test_play_fixture() {
-    const REPLAY: &'static str = "$CARGO_MANIFEST_DIR/assets/tests/logs/Chatlogs/test.intel_20260217_130052_12345.txt";
+    const REPLAY: &'static str = "$CARGO_MANIFEST_DIR/assets/tests/logs/intel/Chatlogs/test.intel_20260217_130052_12345.txt";
 
     setup();
     let sys = test_system();
