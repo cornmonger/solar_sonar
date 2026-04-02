@@ -397,3 +397,24 @@ fn generate_test_asset(test_dir: PathBuf, output_dir: &Path) {
     let test_name = test_dir.components().last().unwrap().as_os_str().to_str().unwrap();
     
 }
+
+fn sonar_binlog_cmd(
+    workspace_dir: &Path,
+    config_dir: &Path,
+    replay_dir: &Path,
+    binlog_dir: &Path
+) -> Command {
+    let mut cmd = Command::new("cargo");
+    cmd.current_dir(workspace_dir);
+    cmd.args(&[
+        "run",
+        "--",
+        "--audio false",
+        "--stdio false",
+    ]);
+    cmd.arg(format!("--config {}", config_dir.to_string_lossy()));
+    cmd.arg(format!("--replay {}", replay_dir.to_string_lossy()));
+    cmd.arg(format!("--binlog {}", binlog_dir.to_string_lossy()));
+    
+    cmd
+}

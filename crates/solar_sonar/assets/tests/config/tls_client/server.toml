@@ -1,6 +1,0 @@
-default = "test"
-
-[[serve]]
-name = "test"
-ip = "127.0.0.1"
-port = 3232

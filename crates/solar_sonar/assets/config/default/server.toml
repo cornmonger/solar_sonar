@@ -1,11 +1,8 @@
 # ~/.config/solar_sonar/serve.toml
 # Network server configuration
 
-# The default profile to serve, optional
-default = "default"
-
 # EXAMPLE
-# Copy, uncomment, and fill out for each character.
+# Copy, uncomment, and fill out for each server setup.
 #
 # Server profile
 ## TLS
@@ -17,6 +14,6 @@ default = "default"
 #port = 3232  
 
 [[serve]]
-name = "default"
+name = "localhost"
 ip = "127.0.0.1"
 port = 3232

@@ -1,0 +1,25 @@
+[[log]]
+kind = "game"
+modes = ["stand", "crab", "fleet"]
+analysis = ["combat"]
+characters = ["tester1"]
+
+[[log]]
+kind = "group"
+name = "our.intel"
+modes = ["stand", "crab"]
+analysis = ["intel", "message"]
+characters = ["tester1"]
+
+[[log]]
+kind = "fleet"
+modes = ["crab"]
+analysis = ["callout", "message"]
+characters = ["tester1"]
+
+[[log]]
+kind = "fleet"
+modes = ["stand", "fleet"]
+analysis = ["message"]
+characters = ["tester1"]
+

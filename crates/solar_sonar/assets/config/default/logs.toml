@@ -26,26 +26,27 @@
 # The name of the chat channel. Applicable to 'group' kind only
 
 [[log]]
+kind = "game"
+modes = ["stand", "crab", "fleet"]
+analysis = ["combat"]
+characters = [] # your character names
+
+[[log]]
 kind = "group"
 name = "our.intel"
 modes = ["stand", "crab"]
-characters = ["me"]
-pings = ["intel"]
+analysis = ["intel", "message"]
+characters = [] # your character names
 
 [[log]]
 kind = "fleet"
 modes = ["crab"]
-characters = ["me"]
-pings = ["callout", "message"]
+analysis = ["callout", "message"]
+characters = [] # your character names
 
 [[log]]
 kind = "fleet"
-modes = ["stand"]
-characters = ["me"]
-pings = ["combat", "message"]
+modes = ["stand", "fleet"]
+analysis = ["message"]
+characters = [] # your character names
 
-[[log]]
-kind = "game"
-modes = ["crab"]
-characters = ["me"]
-pings = ["callout"]

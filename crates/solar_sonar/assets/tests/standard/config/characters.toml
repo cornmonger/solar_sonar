@@ -1,0 +1,9 @@
+[[character]]
+alias = "tester1"
+id = 1
+name = "Tester One"
+
+[[character]]
+alias = "tester2"
+id = 2
+name = "Tester Two"
