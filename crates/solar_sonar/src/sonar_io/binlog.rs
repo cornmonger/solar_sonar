@@ -1,28 +1,37 @@
 use crate::*;
 
-pub(crate) struct SonarBinaryLog {
-    output_dir: PathBuf,
-    inner: RefCell<InnerMut>,
+#[derive(Debug)]
+pub(crate) struct SonarBinLog {
+    output: PathBuf,
+    inner: Mutex<InnerMut>,
 }
 
+#[derive(Debug)]
 struct InnerMut {
     session_date: NaiveDate,
     filepath: PathBuf,
     writer: BufWriter<File>,
 }
 
-impl SonarBinaryLog {
-    pub(crate) fn new(output_dir: PathBuf) -> SolarResult<Self> {
+impl SonarBinLog {
+    /// Output parameter will be treated as a directory unless it
+    /// ends with ".binlog".
+    pub(crate) fn init(output: PathBuf) -> SolarResult<Self> {
         let session_date = Utc::now().date_naive(); 
-        let inner = Self::new_inner(&output_dir, session_date)?;
-        let inner = RefCell::new(inner);
+        let inner = Self::new_inner(&output, session_date)?;
+        let inner = Mutex::new(inner);
         
-        Ok(Self { output_dir, inner })
+        Ok(Self { output, inner })
     }
     
     fn new_inner(dir: &Path, session_date: NaiveDate) -> SolarResult<InnerMut> {
-        let filename = format!("solar_sonar_{}.binlog", session_date.format("%Y-%m-%d"));
-        let filepath = dir.join(filename);
+        let filepath = if dir.ends_with(".binlog") {
+            dir.to_path_buf()
+        } else {
+            let filename = format!("solar_sonar_{}.binlog", session_date.format("%Y-%m-%d"));
+            dir.join(filename)
+        };
+        
         let mut fsopts = fs::OpenOptions::new();
         fsopts.append(true);
         let file = fsopts.open(&filepath)
@@ -39,17 +48,17 @@ impl SonarBinaryLog {
     }
 }
 
-impl SonarListener for SonarBinaryLog {
+impl SonarListener for SonarBinLog {
     async fn on_cancel(&self, _run: &Running) { /* file closed on drop */ }
 
     async fn on_event(&self, _run: &Running, event: &DataEvent) -> SolarResult<()> {
         let today = Utc::now().date_naive();
-        if today != self.inner.borrow().session_date {
-            self.inner.replace(Self::new_inner(&self.output_dir, today)?);
+        if today != self.inner.lock().expect("read").session_date {
+            *self.inner.lock().expect("mut") = Self::new_inner(&self.output, today)?;
         }
         
-        self.inner.borrow_mut().writer.write_all(bitcode::encode(event).as_slice())
-            .map_err(|e| SolarError::write(e, &self.output_dir))?; 
+        self.inner.lock().expect("mut").writer.write_all(bitcode::encode(event).as_slice())
+            .map_err(|e| SolarError::write(e, &self.output))?; 
         
         Ok(())
     }

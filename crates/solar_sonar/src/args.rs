@@ -11,6 +11,7 @@ pub struct Args {
     pub server_profile: Option<String>,
     pub client_profile: Option<String>,
     pub replay_file: Option<PathBuf>,
+    pub binlog: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -51,6 +52,10 @@ impl Args {
         let replay_file = cli.replay
             .and_then(|p| Some(expand_pathbuf(p)))
             .transpose()?;
+        
+        let binlog = cli.binlog
+            .and_then(|p| Some(expand_pathbuf(p)))
+            .transpose()?;
 
         let this = Args {
             mode: cli.mode,
@@ -62,6 +67,7 @@ impl Args {
             server_profile: cli.serve,
             client_profile: cli.connect,
             replay_file,
+            binlog,
         };
 
         this.build(index)

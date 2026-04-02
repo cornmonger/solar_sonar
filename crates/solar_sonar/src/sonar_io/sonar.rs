@@ -12,12 +12,14 @@ pub struct SonarIO {
     pub(crate) rx: SonarBroadcastRx,
     pub(crate) audio: Option<SonarAudio>,
     pub(crate) stdio: Option<SonarStdio>,
+    pub(crate) binlog: Option<SonarBinLog>,
 }
 
 #[derive(Debug, Clone)]
 pub struct SonarOptions {
     pub audio: bool,
     pub stdio: bool,
+    pub binlog: Option<PathBuf>,
 }
 
 impl SonarIO {
@@ -35,7 +37,12 @@ impl SonarIO {
             false => None,
         };
         
-        Ok(Self { cancel, tx, rx, stdio, audio })
+        let binlog = match options.binlog {
+            Some(output) => Some(SonarBinLog::init(output)?),
+            None => None,
+        };
+        
+        Ok(Self { cancel, tx, rx, stdio, audio, binlog })
     }
     
     pub(crate) fn subscribe(&self) -> SonarBroadcastRx {

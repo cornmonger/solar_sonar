@@ -120,6 +120,7 @@ impl ParamsBuilder {
         let opts = SonarOptions {
             audio: args.audio,
             stdio: args.stdio,
+            binlog: args.binlog.clone(),
         };
         
         Ok(Params {

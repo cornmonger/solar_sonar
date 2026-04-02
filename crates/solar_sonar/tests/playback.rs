@@ -64,6 +64,9 @@ impl Into<sonar::Cfg> for TestCfg {
             logs: self.logs.iter()
                 .map(|c| c.into())
                 .collect::<Vec<_>>(),
+            modes: self.modes.iter()
+                .map(|m| m.into())
+                .collect::<Vec<_>>(),
             server: self.server.into(),
             client: self.client.into(),
         }

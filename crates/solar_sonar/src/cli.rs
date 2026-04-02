@@ -19,6 +19,9 @@ pub struct Cli {
     /// Replay a specific log file
     #[clap(long)]
     pub replay: Option<PathBuf>,
+    #[clap(long)]
+    /// Writes events to a binary log directory
+    pub binlog: Option<PathBuf>,
     /// Serve events to clients according to bind.toml profile.
     #[clap(long)]
     pub serve: Option<String>,

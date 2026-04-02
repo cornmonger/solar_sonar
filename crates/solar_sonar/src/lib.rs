@@ -146,7 +146,6 @@ pub(crate) use self::{
 
 pub(crate) use std::{
     collections::HashMap,
-    cell::RefCell,
     borrow::Cow,
     env,
     error::Error,
@@ -171,7 +170,7 @@ pub(crate) use std::{
     path::{Path, PathBuf},
     process::{Command, ExitCode},
     slice,
-    sync::{Arc, OnceLock},
+    sync::{Arc, OnceLock, Mutex},
     time::{Duration},
 };
 
