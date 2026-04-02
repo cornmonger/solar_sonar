@@ -54,6 +54,7 @@ pub(crate) mod map {
 }
 pub(crate) mod run;
 pub(crate) mod sonar_io {
+    pub(crate) mod binlog;
     pub(crate) mod sonar;
     pub(crate) mod stdio {
         pub(crate) mod stdio;
@@ -127,12 +128,13 @@ pub(crate) use self::{
     audio::*,
     run::*,
     sonar_io::{
-        audio::*,
-        sonar::*,
         stdio::{
             ansi::*,
             stdio::*,
         },
+        audio::*,
+        binlog::*,
+        sonar::*,
     },
     tls::{
         certificate::*,
@@ -144,6 +146,7 @@ pub(crate) use self::{
 
 pub(crate) use std::{
     collections::HashMap,
+    cell::RefCell,
     borrow::Cow,
     env,
     error::Error,
@@ -157,6 +160,7 @@ pub(crate) use std::{
         self,
         BufRead,
         BufReader,
+        BufWriter,
         Seek,
         SeekFrom,
         Write,
@@ -173,7 +177,7 @@ pub(crate) use std::{
 
 pub(crate) use bzip2::read::BzDecoder;
 pub(crate) use clap::Parser;
-pub(crate) use chrono::{NaiveDateTime, DateTime, Utc};
+pub(crate) use chrono::{NaiveDate, NaiveDateTime, DateTime, Utc};
 pub(crate) use const_format::formatcp;
 pub(crate) use encoding_rs_io::DecodeReaderBytesBuilder;
 pub(crate) use encoding_rs::UTF_16LE;
