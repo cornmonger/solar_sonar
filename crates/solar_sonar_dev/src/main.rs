@@ -1,4 +1,5 @@
 use bzip2::{read::BzDecoder, write::BzEncoder};
+use clap::Parser;
 use const_format::formatcp;
 use rusqlite as sqlite;
 use std::{ffi::OsStr, fs::{self, File}, io::{self, Write}, path::{Path, PathBuf}, process::{Command, Stdio}};
@@ -24,9 +25,49 @@ const WARN: &'static str = formatcp!("{YELLOW}[sonar]{CLR}");
 const ERR: &'static str = formatcp!("{RED}[sonar]{CLR}");
 const MAGENTA: &'static str = "\x1b[35m";
 
+#[derive(clap::Parser)]
+struct Cli {
+    #[clap(subcommand)]
+    action: Option<Action>,
+}
+
+#[derive(clap::Subcommand)]
+enum Action {
+    #[clap(subcommand)]
+    Generate(Generate),
+    #[clap(subcommand)]
+    Package(Package),
+}
+
+#[derive(clap::Subcommand)]
+enum Generate {
+    Code,
+    Tests,
+}
+#[derive(clap::Subcommand)]
+enum Package {
+    Speech,
+}
+
 pub fn main() {
+    match Cli::parse().action {
+        None => main_default(),
+        Some(action) => main_action(action),
+    }
+}
+
+fn main_default() {
     generate_code();
-    package_asset_espeak();
+    package_espeak_assets();
+    generate_test_assets();
+}
+
+fn main_action(action: Action) {
+    match action {
+        Action::Generate(Generate::Code) => generate_code(),
+        Action::Generate(Generate::Tests) => generate_test_assets(),
+        Action::Package(Package::Speech) => package_espeak_assets(),
+    }
 }
 
 fn workspace_dir() -> PathBuf {
@@ -166,7 +207,7 @@ const ASSETS_REPO_DIR: &'static str = "../solar_sonar_assets";
 const ESPEAK_BUILD_CHERRY_FILE: &'static str = "en_dict";
 const ASSET_ESPEAK_DATA_BZ2: &'static str = "thirdparty/espeak/espeak_data.tar.bz2";
 
-fn package_asset_espeak() {
+fn package_espeak_assets() {
     let Ok(build_dir) = workspace_dir().join(DEBUG_BUILD_DIR).canonicalize() else {
         panic!("build dir doesn't exist")
     };
@@ -288,15 +329,6 @@ where
     Ok(output)
 }
 
-/*fn git_code<I, S>(dir: &Path, args: I) -> io::Result<ExitStatus>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<OsStr>,
-{
-    let mut cmd = make_git_command(dir, args, true);
-    cmd.status()
-}*/
-
 fn make_git_command<I, S>(dir: &Path, args: I, status: bool) -> Command
 where
     I: IntoIterator<Item = S>,
@@ -312,7 +344,6 @@ where
     
     cmd
 }
-
 
 fn git_current_branch(dir: &Path) -> io::Result<String> {
     git_output(dir, ["branch", "--show-current"])
@@ -347,4 +378,22 @@ fn bunzip2_dir(input_file: &Path, output_dir: &Path) -> std::io::Result<()> {
     let mut archive = tar::Archive::new(decoder);
     archive.unpack(output_dir)?;
     Ok(())
+}
+
+fn generate_test_assets() {
+    let assets_dir = workspace_dir().join("crates/solar_sonar/assets");
+    let input_dir = assets_dir.join("tests/logs");
+    let output_dir = assets_dir.join("tests/binlogs/generated");
+    
+    let input_dir_entries = fs::read_dir(input_dir).expect("test logs dir exists");
+    for test_dir in input_dir_entries {
+        let Ok(test_dir) = test_dir else { continue };
+        if !test_dir.metadata().is_ok_and(|p| p.is_dir()) { continue };
+        generate_test_asset(test_dir.path(), &output_dir);
+    }
+}
+
+fn generate_test_asset(test_dir: PathBuf, output_dir: &Path) {
+    let test_name = test_dir.components().last().unwrap().as_os_str().to_str().unwrap();
+    
 }
