@@ -2,7 +2,9 @@ use solar_sonar as sonar;
 use pretty_assertions::assert_eq;
 use std::{ffi::OsStr, path::{Path, PathBuf}, sync::OnceLock};
 
-const TEST_STANDARD_CONFIG_DIR: &'static str = "assets/test/standard/config";
+const TEST_STANDARD_CONFIG_DIR: &'static str = "tests/assets/standard/config";
+const EXPECTED_RON_FILE_STANDARD: &'static str = "tests/assets/standard/generated/expected/solar_sonar.log.ron";
+
 const TEST_STANDARD_CONFIG: sonar::CfgConst = sonar::CfgConst {
     characters: &[
         sonar::CharacterCfgConst {
@@ -12,7 +14,7 @@ const TEST_STANDARD_CONFIG: sonar::CfgConst = sonar::CfgConst {
         },
     ],
     settings: sonar::SettingsCfgConst {
-        logs_dir: "$CARGO_MANIFEST_DIR/assets/tests/logs/intel",
+        logs_dir: "$CARGO_MANIFEST_DIR/tests/assets/logs/intel",
         modes: &["stand", "crab", "fleet"],
     },
     logs: &[
@@ -83,6 +85,10 @@ fn expand_path<P: AsRef<OsStr>>(path: P) -> PathBuf {
     shellexpand::path::full(path.as_ref()).unwrap().into()
 }
 
+fn read_expected_data_standard() -> sonar::DataLog {
+    sonar::DataLog::read_ron(Path::new(EXPECTED_RON_FILE_STANDARD)).expect("exists")
+}
+
 fn setup_test() {
     static ONCE: OnceLock<()> = OnceLock::new();
     ONCE.get_or_init(|| { sonar::SolarSonar::init_once().unwrap(); });
@@ -98,7 +104,7 @@ fn test_cfg() {
 
 #[tokio::test]
 async fn test_replay_dir() {
-    const REPLAY_DIR: &'static str = "$CARGO_MANIFEST_DIR/assets/tests/standard/logs";
+    const REPLAY_DIR: &'static str = "$CARGO_MANIFEST_DIR/tests/assets/standard/logs";
 
     setup_test();
     let sys = standard_starsys();
@@ -112,13 +118,15 @@ async fn test_replay_dir() {
         .expect("ok");
     
     let mut handle = sonar::start(params).unwrap();
+    let expected_log = read_expected_data_standard();
+    let mut events = Vec::with_capacity(expected_log.events.len());
 
     loop {
         tokio::select! {
-            Ok(event) = handle.recv() => {
-                dbg!(event);
-            },
+            Ok(event) = handle.recv() => events.push(event),
             else => break,
         }
     }
+    
+    assert_eq!(expected_log.events, events);
 }
