@@ -4,13 +4,13 @@ use crate::*;
 pub struct Args {
     pub mode: String,
     pub watch_character_ids: Vec<CharacterId>,
-    pub watch_system_ids: Vec<SolarId>,
+    pub watch_system_ids: Vec<StarId>,
     pub jumps: u8,
     pub audio: bool,
     pub stdio: bool,
     pub server_profile: Option<String>,
     pub client_profile: Option<String>,
-    pub replay_file: Option<PathBuf>,
+    pub replay_path: Option<PathBuf>,
     pub binlog: Option<PathBuf>,
 }
 
@@ -66,7 +66,7 @@ impl Args {
             stdio: cli.stdio,
             server_profile: cli.serve,
             client_profile: cli.connect,
-            replay_file,
+            replay_path: replay_file,
             binlog,
         };
 
@@ -74,7 +74,7 @@ impl Args {
     }
 
     pub fn build(self, index: &mut Index) -> SolarResult<ArgParam> {
-        let arg_indexed_logs = if let Some(replay_file) = self.replay_file.as_ref().map(PathBuf::from) {
+        let arg_indexed_logs = if let Some(replay_file) = self.replay_path.as_ref().map(PathBuf::from) {
             let dir_kind = LogDirKind::from_file_path(&replay_file)
                 .unwrap_or(LogDirKind::Chat);
             let log_file = LogFile::from_path_buf(replay_file, dir_kind)
@@ -102,13 +102,13 @@ impl Args {
             .collect()
     }
     
-    pub(crate) fn watch_systems(&self) -> Vec<&'static SolarSystem > {
+    pub(crate) fn watch_systems(&self) -> Vec<&'static StarSystem > {
         self.watch_system_ids.iter()
             .map(|id| STAR_MAP.system(id))
             .collect()
     }
 
     pub(crate) fn is_replay(&self) -> bool {
-        self.replay_file.is_some()
+        self.replay_path.is_some()
     }
 }

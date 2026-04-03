@@ -40,8 +40,8 @@ impl LogAnalysis {
         self.callout.as_ref().and_then(|callout| callout.callout())
     }
     
-    pub fn system_ids(&self) -> &Vec<SolarId> {
-        static EMPTY: Vec<SolarId> = vec![];
+    pub fn system_ids(&self) -> &Vec<StarId> {
+        static EMPTY: Vec<StarId> = vec![];
         
         if let Some(intel) = &self.intel {
             intel.system_ids()

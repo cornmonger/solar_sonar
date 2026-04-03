@@ -6,7 +6,7 @@ use crate::*;
 )]
 pub struct IntelAnalysis {
     pub ambiguous: bool,
-    pub systems: Vec<SolarId>,
+    pub systems: Vec<StarId>,
     pub keywords: Vec<IntelKeyword>,
 }
 
@@ -26,7 +26,7 @@ impl Analysis for IntelAnalysis {
 }
 
 impl SystemContextAnalysis for IntelAnalysis {
-    fn system_ids(&self) -> &Vec<SolarId> {
+    fn system_ids(&self) -> &Vec<StarId> {
        &self.systems
     }
 }

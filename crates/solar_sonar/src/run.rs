@@ -265,13 +265,13 @@ async fn run(run: Running, mut io: SonarIO) -> SolarResult<()> {
     
     let source_kind = if run.args.client_profile.is_some() {
         SourceKind::Client
-    } else if run.args.replay_file.is_some() {
+    } else if run.args.replay_path.is_some() {
         SourceKind::Replay
     } else {
         SourceKind::Logs
     };
     
-    let (mut last_stamp, replay_log) = match &run.args.replay_file {
+    let (mut last_stamp, replay_log) = match &run.args.replay_path {
         Some(p) => {
             let log_dir_kind = LogDirKind::from_file_path(p)
                 .ok_or_else(|| SolarError::msg(format!("Unable to determine log kind from dirname: {}", log_path(p))))?;
@@ -510,7 +510,7 @@ impl Running {
         watch
     }
     
-    pub(crate) fn watch_range(&self) -> Vec<&'static SolarSystem> {
+    pub(crate) fn watch_range(&self) -> Vec<&'static StarSystem> {
         let nav = StarNavigator::default();
         self.args.watch_systems().iter()
             .map(|sys| nav.systems_in_range(self.args.jumps, sys))

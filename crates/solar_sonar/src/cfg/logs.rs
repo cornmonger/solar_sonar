@@ -45,3 +45,31 @@ impl LogConfig {
         Ok(Self { indexed, modes, characters, analysis })
     }
 }
+
+#[derive(Debug)]
+pub struct LogCfgConst {
+    pub kind: LogKind,
+    pub name: Option<&'static str>,
+    pub characters: &'static [&'static str],
+    pub modes: &'static [&'static str],
+    pub analysis: &'static [AnalysisKind],
+}
+
+impl From<&LogCfgConst> for LogCfg {
+    fn from(v: &LogCfgConst) -> Self {
+        Self {
+            kind: v.kind,
+            name: v.name.map(|s| s.to_string()),
+            modes: v.modes.iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
+            characters: v.characters.iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
+            analysis: v.analysis.iter()
+                .map(|s| *s)
+                .collect::<Vec<_>>(),
+        }
+    }
+}
+

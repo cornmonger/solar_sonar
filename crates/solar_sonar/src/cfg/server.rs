@@ -2,7 +2,6 @@ use crate::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ServerCfg {
-    pub default: Option<String>,
     pub serve: Vec<ServeCfg>,
 }
 
@@ -35,3 +34,34 @@ impl ServerProfileConfig {
         })
     }
 }
+
+#[derive(Debug)]
+pub struct ServerCfgConst {
+    pub serve: &'static [ServeCfgConst],
+}
+
+#[derive(Debug)]
+pub struct ServeCfgConst {
+    pub name: &'static str,
+    pub tls: TlsCfgConst,
+}
+
+impl From<&ServeCfgConst> for ServeCfg {
+    fn from(v: &ServeCfgConst) -> Self {
+        Self {
+            name: v.name.to_string(),
+            tls: (&v.tls).into(),
+        }
+    }
+}
+
+impl From<&ServerCfgConst> for ServerCfg {
+    fn from(v: &ServerCfgConst) -> Self {
+        Self {
+            serve: v.serve.iter()
+                .map(|c| c.into())
+                .collect(),
+        }
+    }
+}
+

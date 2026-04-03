@@ -77,3 +77,23 @@ impl CombatAnalysisModeConfig {
         })
     }
 }
+
+#[derive(Debug)]
+pub struct CombatAnalysisModeCfgConst {
+    pub cease_time: Option<u16>,
+    pub engagement: Option<EngagementKind>,
+    pub targeted: Option<TargetedKind>,
+    pub yellowboxers: Option<u8>,
+}
+
+impl From<&CombatAnalysisModeCfgConst> for CombatAnalysisModeCfg {
+    fn from(v: &CombatAnalysisModeCfgConst) -> Self {
+        Self {
+            cease_time: v.cease_time,
+            engagement: v.engagement,
+            targeted: v.targeted,
+            yellowboxers: v.yellowboxers,
+        }
+    }
+}
+

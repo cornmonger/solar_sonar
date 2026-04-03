@@ -5,7 +5,7 @@ pub trait Analysis {
 }
 
 pub trait SystemContextAnalysis {
-    fn system_ids(&self) -> &Vec<SolarId>;
+    fn system_ids(&self) -> &Vec<StarId>;
 }
 
 pub(crate) trait Analyzer<A: Analysis> {

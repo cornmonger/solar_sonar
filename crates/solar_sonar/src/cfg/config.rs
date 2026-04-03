@@ -13,8 +13,6 @@ pub struct Config {
     pub modes: Vec<ModeConfig>,
     pub server_profiles: Vec<ServerProfileConfig>,
     pub client_profiles: Vec<ClientProfileConfig>,
-    pub default_client_profile: Option<String>,
-    pub default_server_profile: Option<String>,
 }
 
 /// Public-facing configuration. Converted into [Config] at init.
@@ -23,7 +21,7 @@ pub struct Config {
 pub struct Cfg {
     pub settings: SettingsCfg,
     pub characters: Vec<CharacterCfg>,
-    pub modes: Vec<NamedModeDirCfg>,
+    pub modes: Vec<NamedModeCfg>,
     pub logs: Vec<LogCfg>,
     pub server: ServerCfg,
     pub client: ClientCfg,
@@ -60,7 +58,7 @@ impl Cfg {
             .collect::<Vec<_>>();
         
         let modes = settings.modes.iter()
-            .map(|mode_name| NamedModeDirCfg::read_dir(&config_dir, mode_name))
+            .map(|mode_name| NamedModeCfg::read_dir(&config_dir, mode_name))
             .collect::<SolarResult<Vec<_>>>()?;
         
         let logs = LogsCfg::read(&config_dir)?
@@ -111,9 +109,6 @@ impl Cfg {
             .map(|cfg| ClientProfileConfig::try_from_cfg(cfg))
             .collect::<SolarResult<Vec<_>>>()?;
         
-        let default_server_profile = self.server.default;
-        let default_client_profile = self.client.default;
-        
         let config = Config {
             logs_dir,
             characters,
@@ -121,8 +116,6 @@ impl Cfg {
             logs,
             server_profiles,
             client_profiles,
-            default_server_profile,
-            default_client_profile,
         };
         
         let index = Index::new(mode_index, character_index, chat_channels);
@@ -214,3 +207,33 @@ impl Config {
             .ok_or_else(|| SolarError::msg("Log config not found for character"))
     }
 }
+
+#[derive(Debug)]
+pub struct CfgConst {
+    pub characters: &'static [CharacterCfgConst],
+    pub settings: SettingsCfgConst,
+    pub server: ServerCfgConst,
+    pub client: ClientCfgConst,
+    pub logs: &'static [LogCfgConst],
+    pub modes: &'static [NamedModeCfgConst],
+}
+
+impl From<&CfgConst> for Cfg {
+    fn from(v: &CfgConst) -> Self {
+        Self {
+            characters: v.characters.iter()
+                .map(|c| c.into())
+                .collect::<Vec<_>>(),
+            settings: (&v.settings).into(),
+            logs: v.logs.iter()
+                .map(|c| c.into())
+                .collect::<Vec<_>>(),
+            modes: v.modes.iter()
+                .map(|m| m.into())
+                .collect::<Vec<_>>(),
+            server: (&v.server).into(),
+            client: (&v.client).into(),
+        }
+    }
+}
+

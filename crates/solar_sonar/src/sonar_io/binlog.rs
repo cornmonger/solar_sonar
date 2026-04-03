@@ -58,7 +58,7 @@ impl SonarListener for SonarBinLog {
         }
         
         self.inner.lock().expect("mut").writer.write_all(bitcode::encode(event).as_slice())
-            .map_err(|e| SolarError::write(e, &self.output))?; 
+            .map_err(|e| SolarError::write(e, &self.inner.lock().expect("lock").filepath))?; 
         
         Ok(())
     }

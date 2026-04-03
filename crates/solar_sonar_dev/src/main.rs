@@ -173,7 +173,7 @@ fn generate_starmap_rs(sql: &sqlite::Connection) {
         let id = Literal::u32_unsuffixed(sys.id);
         let name = sys.name;
         systems.push(quote!{
-            SolarSystem {
+            StarSystem {
                 id: #id,
                 name: #name,
                 gates: &[ #(#gates),* ]

@@ -21,3 +21,19 @@ impl TlsConfig {
         Ok(TlsConfig { ip, port })
     }
 }
+
+#[derive(Debug)]
+pub struct TlsCfgConst {
+    pub ip: &'static str,
+    pub port: u16,
+}
+
+impl From<&TlsCfgConst> for TlsCfg {
+    fn from(v: &TlsCfgConst) -> TlsCfg {
+        Self {
+            ip: v.ip.to_string(),
+            port: v.port,
+        }
+    }
+}
+

@@ -2,7 +2,6 @@ use crate::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ClientCfg {
-    pub default: Option<String>,
     // optional list of connections
     #[serde(default)]
     pub connect: Vec<ConnectCfg>,
@@ -34,5 +33,35 @@ impl ClientProfileConfig {
             name: cfg.name,
             tls,
         })
+    }
+}
+
+#[derive(Debug)]
+pub struct ClientCfgConst {
+    pub connect: &'static [ConnectCfgConst],
+}
+
+#[derive(Debug)]
+pub struct ConnectCfgConst {
+    pub name: &'static str,
+    pub tls: TlsCfgConst,
+}
+
+impl From<&ClientCfgConst> for ClientCfg {
+    fn from(v: &ClientCfgConst) -> Self {
+        Self {
+            connect: v.connect.iter()
+                .map(|c| c.into())
+                .collect(),
+        }
+    }
+}
+
+impl From<&ConnectCfgConst> for ConnectCfg {
+    fn from(v: &ConnectCfgConst) -> ConnectCfg {
+        Self {
+            name: v.name.to_string(),
+            tls: (&v.tls).into(),
+        }
     }
 }

@@ -1,4 +1,4 @@
 //use crate::*;
 
-pub type SolarId = u32;
+pub type StarId = u32;
 pub type CharacterId = u32;

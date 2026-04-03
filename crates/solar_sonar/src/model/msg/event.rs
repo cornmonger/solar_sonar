@@ -37,7 +37,7 @@ pub enum DataEvent {
         channel: CharacterLog,
     },
     PingSystems {
-        system_ids: Vec<SolarId>,
+        system_ids: Vec<StarId>,
     },
 }
 
@@ -46,9 +46,9 @@ pub enum DataEvent {
     bitcode::Encode, bitcode::Decode,
 )]
 pub struct ArgsData {
-    pub system_ids: Vec<SolarId>,
+    pub system_ids: Vec<StarId>,
     pub character_ids: Vec<CharacterId>,
     pub channels: Vec<CharacterLog>,
     pub jumps: u8,
-    pub system_range: Vec<SolarId>,
+    pub system_range: Vec<StarId>,
 }

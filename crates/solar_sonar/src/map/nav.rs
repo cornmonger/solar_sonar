@@ -11,7 +11,7 @@ impl Default for StarNavigator {
 }
 
 impl StarNavigator {
-    pub fn systems_in_range(&self, jumps: u8, from_system: &'static SolarSystem) -> Vec<&'static SolarSystem> {
+    pub fn systems_in_range(&self, jumps: u8, from_system: &'static StarSystem) -> Vec<&'static StarSystem> {
         if jumps <= 0 {
             return vec![];
         }
@@ -36,7 +36,7 @@ impl StarNavigator {
             .collect()
     }
 
-    fn next_jump_range(&self, jumps: u8, from_system: &'static SolarSystem, mut range: Vec<SolarId>) -> Vec<SolarId> {
+    fn next_jump_range(&self, jumps: u8, from_system: &'static StarSystem, mut range: Vec<StarId>) -> Vec<StarId> {
         let gate_system_ids = from_system.gates.iter()
             .filter(|sys_id| !range.contains(sys_id))
             .collect::<Vec<_>>();

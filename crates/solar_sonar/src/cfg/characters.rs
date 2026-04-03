@@ -38,3 +38,21 @@ impl CharacterConfig {
 impl IndexKey for CharacterConfig {
     fn index_key(&self) -> &str { &self.alias }
 }
+
+#[derive(Debug)]
+pub struct CharacterCfgConst {
+    pub alias: &'static str,
+    pub id: CharacterId,
+    pub name: &'static str,
+}
+
+impl From<&CharacterCfgConst> for CharacterCfg {
+    fn from(v: &CharacterCfgConst) -> Self {
+        Self {
+            alias: v.alias.to_string(),
+            id: v.id,
+            name: v.name.to_string(),
+       }
+    }
+}
+
