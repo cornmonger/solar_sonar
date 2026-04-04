@@ -1,18 +1,23 @@
-# Testing: Logs
+# Watched Characters
+- Tester One aka tester1 (111) @ INC1 / ALLY
+- Tester Two aka tester2 (222) @ INC2 / ALLY
 
-EVE logs are written in UTF-16LE.
+# Known Characters
+- Tester FC aka testerfc (333) @ INC1 / ALLY
 
-We maintain UTF8 as the source text for test log data.
+# Enemy Characters
+- Tester Z aka ztester (999) @ ZINC / ZNME
+- Tester Y (888) aka ytester @ YINC / YNME 
 
-We then convert the source text to UTF16 to be tested.
+# Sessions
+Client sessions: When an instance of the game-client starts up.
+Character sessions: When the game-client logs in with a character.
 
-Any cherry-picking done from actual EVE logs needs to be converted and
-scrubbed of user names, ids, and urls, etc. 
-
-To convert between the two encodings, we use `iconv`.
-
-## Convert from UTF-16LE to UTF-8:
-`iconv -f utf-16le -t utf-8 read/from/log_file.txt > write/to/utf8_log_file.txt`
-
-## Convert from UTF-8 to UTF-16LE:
-`iconv -f utf-8 -t utf-16le read/from/utf8_log_file.txt > write/to/utf16_log_file.txt`
+- Client Session 1.1 for tester1 begins at     2026-04-01_01:01:01
+- Character Session 1.1 for tester1 begins at  2026-04-01_01:01:11
+- Client Session 1.2 for tester2 begins at     2026-04-01_01:02:02
+- Character Session 1.2 for tester2 begins at  2026-04-01_01:02:22
+- Client Session 2.1 for tester1 begins at     2026-04-01_02:01:01
+- Character Session 2.1 for tester1 begins at  2026-04-01_02:01:11
+- Client Session 2.2 for tester2 begins at     2026-04-01_01:02:02
+- Character Session 2.2 for tester2 begins at  2026-04-01_01:02:22
