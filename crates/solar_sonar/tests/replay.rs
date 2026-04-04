@@ -117,7 +117,7 @@ async fn test_replay_dir() {
         .build()
         .expect("ok");
     
-    let mut handle = sonar::start(params).unwrap();
+    let mut handle = sonar::start(params).await.unwrap();
     let expected_log = read_expected_data_standard();
     let mut events = Vec::with_capacity(expected_log.events.len());
 

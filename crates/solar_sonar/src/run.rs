@@ -13,7 +13,7 @@ pub async fn run_cli() -> ExitCode {
         return ExitCode::FAILURE
     };
     
-    let Ok(Startup { running, sonar_io }) = handle_error(Running::startup(params)) else {
+    let Ok(Startup { running, sonar_io }) = handle_error(Running::startup(params).await) else {
         return ExitCode::FAILURE;
     };
 
@@ -155,8 +155,8 @@ pub struct Params {
     pub(crate) mode_id: ModeId,
 }
 
-pub fn start(params: Params) -> SolarResult<SolarSonarHandle> {
-    let Startup { running, sonar_io } = handle_error(Running::startup(params))?;
+pub async fn start(params: Params) -> SolarResult<SolarSonarHandle> {
+    let Startup { running, sonar_io } = handle_error(Running::startup(params).await)?;
     let rx = sonar_io.subscribe();
     
     let cancel = r::tokio::CancellationToken::new();
@@ -463,8 +463,8 @@ pub(crate) struct Startup {
 }
 
 impl Running {
-    pub(crate) fn startup(params: Params) -> SolarResult<Startup> {
-        let sonar_io = SonarIO::init(params.opts)?;
+    pub(crate) async fn startup(params: Params) -> SolarResult<Startup> {
+        let sonar_io = SonarIO::init(params.opts).await?;
         
         let running = Self {
             args: params.args,

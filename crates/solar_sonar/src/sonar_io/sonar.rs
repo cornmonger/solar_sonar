@@ -5,7 +5,6 @@ pub type SonarBroadcastRx = r::tokio::broadcast::Receiver<DataEvent>;
 
 const EVENT_IO_BUFFER_MAX: usize = 64;
 
-#[derive(Debug)]
 pub struct SonarIO {
     pub(crate) cancel: r::tokio::CancellationToken,
     pub(crate) tx: SonarBroadcastTx,
@@ -23,7 +22,7 @@ pub struct SonarOptions {
 }
 
 impl SonarIO {
-    pub(crate) fn init(options: SonarOptions) -> SolarResult<Self> {
+    pub(crate) async fn init(options: SonarOptions) -> SolarResult<Self> {
         let (tx, rx) = r::tokio::broadcast::channel(EVENT_IO_BUFFER_MAX);
         let cancel = r::tokio::CancellationToken::new();
         
@@ -38,7 +37,7 @@ impl SonarIO {
         };
         
         let binlog = match options.binlog {
-            Some(output) => Some(SonarRelog::init(output)?),
+            Some(output) => Some(SonarRelog::init(output).await?),
             None => None,
         };
         

@@ -132,7 +132,7 @@ impl DataLog {
     }
 }
 
-fn make_ron_options() -> ron::Options {
+pub(crate) fn make_ron_options() -> ron::Options {
     ron::Options::default().with_default_extension(
         ron::extensions::Extensions::UNWRAP_NEWTYPES
         | ron::extensions::Extensions::UNWRAP_VARIANT_NEWTYPES
@@ -141,7 +141,7 @@ fn make_ron_options() -> ron::Options {
     )
 }
 
-fn make_ron_config(ron_options: &ron::Options) -> ron::ser::PrettyConfig {
+pub(crate) fn make_ron_config(ron_options: &ron::Options) -> ron::ser::PrettyConfig {
     ron::ser::PrettyConfig::default()
         .struct_names(true)
         .extensions(ron_options.default_extensions)

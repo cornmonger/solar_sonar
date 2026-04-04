@@ -50,14 +50,14 @@ where
     }
 }
 
-impl<T> r::tokio::Encoder<T> for BitcodeCodec<T>
+impl<T> r::tokio::Encoder<&T> for BitcodeCodec<T>
 where
     T: bitcode::Encode,
 {
     type Error = std::io::Error;
 
-    fn encode(&mut self, item: T, dst: &mut r::tokio::BytesMut) -> Result<(), Self::Error> {
-        let bytes = bitcode::encode(&item);
+    fn encode(&mut self, item: &T, dst: &mut r::tokio::BytesMut) -> Result<(), Self::Error> {
+        let bytes = bitcode::encode(item);
         self.codec.encode(bytes.into(), dst)
     }
 }

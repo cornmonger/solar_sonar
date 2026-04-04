@@ -108,7 +108,7 @@ impl TlsClient {
         framed_read: &mut r::tokio::FramedRead<r::tokio::ReadHalf<r::tls::client::TlsStream<r::tokio::TcpStream>>, BitcodeCodec<ServerToClient>>,
         framed_write: &mut r::tokio::FramedWrite<r::tokio::WriteHalf<r::tls::client::TlsStream<r::tokio::TcpStream>>, BitcodeCodec<ClientToServer>>
     ) {
-        if framed_write.send(ClientToServer::Close).await.is_err() {
+        if framed_write.send(&ClientToServer::Close).await.is_err() {
             return;
         }
         
@@ -147,7 +147,7 @@ impl TlsClient {
                                 }
                             },
                             ServerToClient::Close => {
-                                let _ = framed_write.send(ClientToServer::Close).await;
+                                let _ = framed_write.send(&ClientToServer::Close).await;
                                 break;
                             },
                         }
