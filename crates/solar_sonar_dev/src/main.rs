@@ -381,40 +381,54 @@ fn bunzip2_dir(input_file: &Path, output_dir: &Path) -> std::io::Result<()> {
 }
 
 fn generate_test_assets() {
-    let assets_dir = workspace_dir().join("crates/solar_sonar/assets");
-    let input_dir = assets_dir.join("tests/logs");
-    let output_dir = assets_dir.join("tests/binlogs/generated");
+    let workspace_dir = workspace_dir();
+    let asset_groups_dir = workspace_dir.join("crates/solar_sonar/tests/assets/groups");
     
-    let input_dir_entries = fs::read_dir(input_dir).expect("test logs dir exists");
-    for test_dir in input_dir_entries {
-        let Ok(test_dir) = test_dir else { continue };
-        if !test_dir.metadata().is_ok_and(|p| p.is_dir()) { continue };
-        generate_test_asset(test_dir.path(), &output_dir);
+    let input_dir_entries = fs::read_dir(asset_groups_dir).expect("asset groups dir exists");
+    for asset_group_dir in input_dir_entries {
+        let Ok(asset_group_dir) = asset_group_dir else { continue };
+        if !asset_group_dir.metadata().is_ok_and(|p| p.is_dir()) { continue };
+        generate_test_asset(&workspace_dir, &asset_group_dir.path());
     }
 }
 
-fn generate_test_asset(test_dir: PathBuf, output_dir: &Path) {
-    let test_name = test_dir.components().last().unwrap().as_os_str().to_str().unwrap();
+fn generate_test_asset(workspace_dir: &Path, asset_group_dir: &Path) {
+    let config_dir = asset_group_dir.join("config");
+    let replay_dir = asset_group_dir.join("logs");
+    let output_dir = asset_group_dir.join("expected/generated");
     
+    let relog_file = output_dir.join("solar_sonar.ron.log");
+    let mut cmd = sonar_cmd_relog_ron(workspace_dir, &config_dir, &replay_dir, &relog_file);
+    if !cmd.status().unwrap().success() {
+        panic!("failed to write ron.log");
+    }
+    
+    let relog_file = output_dir.join("solar_sonar.bin.log");
+    let mut cmd = sonar_cmd_relog_ron(workspace_dir, &config_dir, &replay_dir, &relog_file);
+    if !cmd.status().unwrap().success() {
+        panic!("failed to write bin.log");
+    }
 }
 
-fn sonar_binlog_cmd(
+fn sonar_cmd_relog_ron(
     workspace_dir: &Path,
     config_dir: &Path,
     replay_dir: &Path,
-    binlog_dir: &Path
+    relog_file: &Path
 ) -> Command {
     let mut cmd = Command::new("cargo");
     cmd.current_dir(workspace_dir);
     cmd.args(&[
         "run",
         "--",
+        "tester1",
+        "ualx-3",
         "--audio false",
         "--stdio false",
     ]);
     cmd.arg(format!("--config {}", config_dir.to_string_lossy()));
     cmd.arg(format!("--replay {}", replay_dir.to_string_lossy()));
-    cmd.arg(format!("--binlog {}", binlog_dir.to_string_lossy()));
+    cmd.arg(format!("--relog {}", relog_file.to_string_lossy()));
     
     cmd
 }

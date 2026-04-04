@@ -28,4 +28,7 @@ pub struct Cli {
     /// Receive events from a connect.toml profile.
     #[clap(long)]
     pub connect: Option<String>,
+    /// Non-default configuration directory
+    #[clap(long, short = 'c')]
+    pub config: Option<PathBuf>,
 }

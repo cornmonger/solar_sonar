@@ -8,10 +8,11 @@ pub struct Args {
     pub jumps: u8,
     pub audio: bool,
     pub stdio: bool,
+    pub config_dir: Option<PathBuf>,
     pub server_profile: Option<String>,
     pub client_profile: Option<String>,
     pub replay_path: Option<PathBuf>,
-    pub relog: Option<PathBuf>,
+    pub relog_path: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -49,11 +50,13 @@ impl Args {
             )
             .collect::<SolarResult<Vec<_>>>()?;
 
-        let replay_file = cli.replay
+        let replay_path = cli.replay
             .and_then(|p| Some(expand_pathbuf(p)))
             .transpose()?;
-        
-        let binlog = cli.relog
+        let relog_path = cli.relog
+            .and_then(|p| Some(expand_pathbuf(p)))
+            .transpose()?;
+        let config_dir = cli.config
             .and_then(|p| Some(expand_pathbuf(p)))
             .transpose()?;
 
@@ -66,8 +69,9 @@ impl Args {
             stdio: cli.stdio,
             server_profile: cli.serve,
             client_profile: cli.connect,
-            replay_path: replay_file,
-            relog: binlog,
+            replay_path,
+            relog_path,
+            config_dir,
         };
 
         this.build(index)
