@@ -54,7 +54,7 @@ pub(crate) mod map {
 }
 pub(crate) mod run;
 pub(crate) mod sonar_io {
-    pub(crate) mod binlog;
+    pub(crate) mod relog;
     pub(crate) mod sonar;
     pub(crate) mod stdio {
         pub(crate) mod stdio;
@@ -133,7 +133,7 @@ pub(crate) use self::{
             stdio::*,
         },
         audio::*,
-        binlog::*,
+        relog::*,
         sonar::*,
     },
     tls::{

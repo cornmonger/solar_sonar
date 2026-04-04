@@ -72,7 +72,7 @@ fn make_args(cfg: &sonar::Cfg, sys: &sonar::StarSystem) -> sonar::Args {
         server_profile: None,
         client_profile: None,
         mode: "crab".to_string(),
-        binlog: None,
+        relog: None,
     }
 }
 

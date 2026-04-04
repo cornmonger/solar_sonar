@@ -12,7 +12,7 @@ pub struct SonarIO {
     pub(crate) rx: SonarBroadcastRx,
     pub(crate) audio: Option<SonarAudio>,
     pub(crate) stdio: Option<SonarStdio>,
-    pub(crate) binlog: Option<SonarBinLog>,
+    pub(crate) binlog: Option<SonarRelog>,
 }
 
 #[derive(Debug, Clone)]
@@ -38,7 +38,7 @@ impl SonarIO {
         };
         
         let binlog = match options.binlog {
-            Some(output) => Some(SonarBinLog::init(output)?),
+            Some(output) => Some(SonarRelog::init(output)?),
             None => None,
         };
         

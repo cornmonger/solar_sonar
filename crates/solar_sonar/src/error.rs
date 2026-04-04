@@ -41,6 +41,8 @@ pub enum ErrNoun {
     LogKind,
     #[snafu(display("analysis"))]
     AnalysisKind,
+    #[snafu(display("relog format"))]
+    RelogFormat,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
