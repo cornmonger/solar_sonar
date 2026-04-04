@@ -1,0 +1,42 @@
+# ~/.config/solar_sonar/mode/<mode>/analysis/combat.toml
+# Modal Combat Analysis Configuration
+# 
+# There are two engagement pings available:
+# - "Combat": Sounds when some form of combat begins on grid.
+# - "Yellow-Box": Sounds when multiple opponents begin attacking you.
+# There is one type of disengagement ping available:
+# - "Disengaged": Sounds after combat against you has ceased.
+# 
+# ## `cease_time` (u16)
+# The number of seconds of non-engagement before clearing a each kind of combat
+# ping, based on their triggering settings. 
+# - "Combat": Combat on grid ceases.
+# - "Yellow-Box": Combat against you ceases.
+# 
+# Default: 90 seconds
+# 
+## `engagement` (enum)
+# Filters based on the type of combat.
+# - pvp: (default) Player versus Player
+# - any: Either PVP or PVE
+# 
+# `any` is generally not recommended. It may potentially create no-risk
+# alerts that, in turn, may train you to ignore those alerts.
+# 
+## `targeted` (enum)
+# Who to trigger a "Combat" ping for, aside from obvious friendly-fire.
+# - watched: (default) any of your characters currently being watched 
+# - alliance: any character in your watched characters' corp / alliance
+# - any: any character on grid
+# 
+# `watched` is recommended for PVP fleets.  
+# `any` is recommended for PVE (ratting, mining, etc.)
+# 
+## `yellowboxers` (u8)
+# The minimum number of attackers to trigger the "Yellow-Box" combat ping.
+# Default: 3
+
+#cease_time = 90
+#engagement = "pvp"
+#targeted = "watched"
+#yellowboxers = 3

@@ -421,14 +421,15 @@ fn sonar_cmd_relog_ron(
     cmd.args(&[
         "run",
         "--",
+        "--audio", "false",
+        "--stdio", "false",
+        "--config", &config_dir.to_string_lossy(),
+        "--replay", &replay_dir.to_string_lossy(),
+        "--relog", &relog_file.to_string_lossy(),
+        "crab",
         "tester1",
         "ualx-3",
-        "--audio false",
-        "--stdio false",
     ]);
-    cmd.arg(format!("--config {}", config_dir.to_string_lossy()));
-    cmd.arg(format!("--replay {}", replay_dir.to_string_lossy()));
-    cmd.arg(format!("--relog {}", relog_file.to_string_lossy()));
     
     cmd
 }

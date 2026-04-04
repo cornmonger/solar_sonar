@@ -134,7 +134,11 @@ impl ParamsBuilder {
     }
     
     fn build_cli(cli: Cli) -> SolarResult<(CfgParam, ArgParam)> {
-        let mut cfg_param = Cfg::read()?.build()?;
+        let config_dir = cli.config.as_deref()
+            .map(|p| Cow::Borrowed(p))
+            .unwrap_or_else(|| SolarSonar::get().config_dir());
+        
+        let mut cfg_param = Cfg::read_dir(&config_dir)?.build()?;
         let arg_param = Args::try_from_cli(cli, &cfg_param.config, &mut cfg_param.index)?;
         Ok((cfg_param, arg_param))
     }

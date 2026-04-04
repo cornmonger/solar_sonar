@@ -17,6 +17,7 @@ use crate::*;
     bitcode::Encode, bitcode::Decode,
 )]
 #[repr(u8)]
+#[serde(rename_all = "snake_case")]
 pub enum LogKind {
     Game,
     Local,

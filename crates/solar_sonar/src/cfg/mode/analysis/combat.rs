@@ -57,9 +57,9 @@ pub struct CombatAnalysisModeCfg {
 }
 
 impl ModalCfgToml for CombatAnalysisModeCfg {
-    const SUBDIR: Option<&'static str> = MODE_SUBDIR_ANALYSIS; 
+    const SUBDIR: Option<&'static str> = None; 
     const TOML_FILENAME: &'static str = "combat.toml";
-    const DEFAULT_TOML: &'static str = include_str!("../../../../assets/config/default/modal/analysis/combat.toml");
+    const DEFAULT_TOML: &'static str = include_str!("../../../../assets/config/default/modal/combat.toml");
 }
 
 impl CombatAnalysisModeConfig {

@@ -144,8 +144,6 @@ pub(crate) trait CfgToml: serde::de::DeserializeOwned {
     }
 }
 
-pub(crate) const MODE_SUBDIR_ANALYSIS: Option<&'static str> = Some("analysis");
-
 pub(crate) trait ModalCfgToml: serde::de::DeserializeOwned {
     const SUBDIR: Option<&'static str>;
     const TOML_FILENAME: &'static str;
@@ -153,7 +151,7 @@ pub(crate) trait ModalCfgToml: serde::de::DeserializeOwned {
     
     fn read(config_dir: &Path, mode: &str) -> SolarResult<Self> {
         let filepath = {
-            let mut filepath = config_dir.join(mode);
+            let mut filepath = config_dir.join("mode").join(mode);
             if let Some(subdir) = Self::SUBDIR {
                 filepath = filepath.join(subdir);
             }
@@ -161,6 +159,10 @@ pub(crate) trait ModalCfgToml: serde::de::DeserializeOwned {
             filepath.join(Self::TOML_FILENAME)
         };
         if !filepath.exists() {
+            let dir = filepath.parent().expect("parent");
+            fs::create_dir_all(dir)
+                .map_err(|e| SolarError::mkdir(e, &dir))?;
+            
             setup_config_file(&filepath, Self::DEFAULT_TOML)?;
         }
 
