@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Args {
     pub mode: String,
     pub watch_character_ids: Vec<CharacterId>,
@@ -11,7 +11,7 @@ pub struct Args {
     pub config_dir: Option<PathBuf>,
     pub server_profile: Option<String>,
     pub client_profile: Option<String>,
-    pub replay_path: Option<PathBuf>,
+    pub replay_source: Option<ReplaySource>,
     pub relog_path: Option<PathBuf>,
 }
 
@@ -50,9 +50,12 @@ impl Args {
             )
             .collect::<SolarResult<Vec<_>>>()?;
 
-        let replay_path = cli.replay
+        let replay_source = cli.replay
             .and_then(|p| Some(expand_pathbuf(p)))
+            .transpose()?
+            .and_then(|p| Some(ReplaySource::try_from_path(p)))
             .transpose()?;
+        
         let relog_path = cli.relog
             .and_then(|p| Some(expand_pathbuf(p)))
             .transpose()?;
@@ -69,7 +72,7 @@ impl Args {
             stdio: cli.stdio,
             server_profile: cli.serve,
             client_profile: cli.connect,
-            replay_path,
+            replay_source,
             relog_path,
             config_dir,
         };
@@ -78,15 +81,15 @@ impl Args {
     }
 
     pub fn build(self, index: &mut Index) -> SolarResult<ArgParam> {
-        let arg_indexed_logs = if let Some(replay_file) = self.replay_path.as_ref().map(PathBuf::from) {
-            let dir_kind = LogDirKind::from_file_path(&replay_file)
-                .unwrap_or(LogDirKind::Chat);
-            let log_file = LogFile::from_path_buf(replay_file, dir_kind)
-                .ok_or_else(|| SolarError::msg("Invalid replay log file"))?;
-            let log_name = NamedLog::from_log_file(log_file)?;
-            let channel_names = index.chat_channels_mut();
-            let indexed_log_name = channel_names.index_named(log_name);
-            vec![indexed_log_name]
+        let arg_indexed_logs = if let Some(replay_source) = self.replay_source.as_ref() {
+            if let ReplaySource::LogFile(logfile) = replay_source {
+                let log_name = NamedLog::from_log_file(&logfile)?;
+                let channel_names = index.chat_channels_mut();
+                let indexed_log_name = channel_names.index_named(log_name);
+                vec![indexed_log_name]
+            } else {
+                vec![]
+            }
         } else {
             vec![]
         };
@@ -113,6 +116,6 @@ impl Args {
     }
 
     pub(crate) fn is_replay(&self) -> bool {
-        self.replay_path.is_some()
+        self.replay_source.is_some()
     }
 }

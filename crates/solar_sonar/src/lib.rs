@@ -52,6 +52,7 @@ pub(crate) mod paths;
 pub(crate) mod map {
     pub(crate) mod nav;
 }
+pub(crate) mod replay;
 pub(crate) mod run;
 pub(crate) mod sonar_io {
     pub(crate) mod relog;
@@ -107,6 +108,7 @@ pub use self::{
             analysis::*,
         },
     },
+    replay::*,
     run::{run_cli,start,SolarSonar, ParamsBuilder, Params},
 };
 

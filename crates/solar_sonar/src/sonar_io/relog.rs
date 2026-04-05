@@ -3,7 +3,7 @@ use tokio_util::codec::FramedWrite;
 
 use crate::*;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RelogFormat {
     Binary,
     Ron,

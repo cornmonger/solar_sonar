@@ -68,7 +68,7 @@ fn make_args(cfg: &sonar::Cfg, sys: &sonar::StarSystem) -> sonar::Args {
         jumps: sonar::Args::DEFAULT_JUMPS,
         stdio: false,
         audio: false,
-        replay_path: None,
+        replay_source: None,
         server_profile: None,
         client_profile: None,
         mode: "crab".to_string(),
@@ -111,7 +111,7 @@ async fn test_replay_dir() {
     let sys = standard_starsys();
     let cfg = sonar::Cfg::from(&TEST_STANDARD_CONFIG); 
     let mut args = make_args(&cfg, sys);
-    args.replay_path = Some(expand_path(REPLAY_DIR));
+    args.replay_source = Some(sonar::ReplaySource::LogDir(expand_path(REPLAY_DIR)));
     let params = sonar::ParamsBuilder::new()
         .cfg(cfg)
         .args(args)

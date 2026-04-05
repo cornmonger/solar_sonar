@@ -101,8 +101,8 @@ pub(crate) enum NamedLog {
 }
 
 impl NamedLog {
-    pub(crate) fn from_log_file(file: LogFile) -> SolarResult<Self> {
-        let kind = LogKind::from_log_file(&file);
+    pub(crate) fn from_log_file(file: &LogFile) -> SolarResult<Self> {
+        let kind = LogKind::from_log_file(file);
         let log_name = file.name();
         
         match kind {

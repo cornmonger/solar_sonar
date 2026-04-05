@@ -18,7 +18,7 @@ pub struct SonarIO {
 pub struct SonarOptions {
     pub audio: bool,
     pub stdio: bool,
-    pub binlog: Option<PathBuf>,
+    pub relog: Option<PathBuf>,
 }
 
 impl SonarIO {
@@ -36,7 +36,7 @@ impl SonarIO {
             false => None,
         };
         
-        let binlog = match options.binlog {
+        let binlog = match options.relog {
             Some(output) => Some(SonarRelog::init(output).await?),
             None => None,
         };

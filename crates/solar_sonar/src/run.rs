@@ -120,7 +120,7 @@ impl ParamsBuilder {
         let opts = SonarOptions {
             audio: args.audio,
             stdio: args.stdio,
-            binlog: args.relog_path.clone(),
+            relog: args.relog_path.clone(),
         };
         
         Ok(Params {
@@ -269,22 +269,18 @@ async fn run(run: Running, mut io: SonarIO) -> SolarResult<()> {
     
     let source_kind = if run.args.client_profile.is_some() {
         SourceKind::Client
-    } else if run.args.replay_path.is_some() {
+    } else if run.args.replay_source.is_some() {
         SourceKind::Replay
     } else {
         SourceKind::Logs
     };
     
-    let (mut last_stamp, replay_log) = match &run.args.replay_path {
-        Some(p) => {
-            let log_dir_kind = LogDirKind::from_file_path(p)
-                .ok_or_else(|| SolarError::msg(format!("Unable to determine log kind from dirname: {}", log_path(p))))?;
-            let log = LogFile::from_path_buf(p.to_path_buf(), log_dir_kind)
-                .ok_or_else(|| SolarError::msg(format!("Invalid chat log: {}", log_path(p))))?;
-
-            (log.timestamp().clone(), Some(log))
+    let (mut last_stamp, replay_log) = match &run.args.replay_source {
+        Some(ReplaySource::LogFile(p)) => {
+            (p.timestamp().clone(), Some(p))
         },
         None => (Utc::now().into(), None),
+        _ => todo!(),
     };
 
     io.broadcast(DataEvent::PingFortune)?;
@@ -308,7 +304,7 @@ async fn run(run: Running, mut io: SonarIO) -> SolarResult<()> {
             },
             SourceKind::Replay => {
                 let run = &run;
-                let replay_log = replay_log.as_ref().expect("exists");
+                let replay_log = replay_log.expect("exists");
                 let logs = &mut logs;
                 let analyzer_state = &mut analyzer_state;
                 Box::pin(async move { select_replay(&run, stamp, analyzer_state, logs, &replay_log).await })
